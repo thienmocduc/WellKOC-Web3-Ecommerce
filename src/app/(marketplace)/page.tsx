@@ -116,9 +116,9 @@ export default function HomePage() {
               Web3 Social Commerce Platform
             </div>
             <h1 className="text-4xl font-bold tracking-tight md:text-6xl">
-              Thương mại xã hội
+              Thương Mại Cộng Đồng
               <span className="block bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                minh bạch bằng Blockchain
+                Kỷ Nguyên Số &amp; Hệ Sinh Thái Phục Hưng Sự Sống
               </span>
             </h1>
             <p className="mt-6 text-lg text-muted-foreground md:text-xl">
