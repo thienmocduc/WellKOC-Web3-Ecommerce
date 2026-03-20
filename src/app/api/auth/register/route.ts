@@ -2,7 +2,6 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 
 type UserRole = 'admin' | 'vendor' | 'koc' | 'user';
 const VALID_ROLES: UserRole[] = ['user', 'vendor', 'koc'];
@@ -16,7 +15,6 @@ export async function POST(request: NextRequest) {
       role?: string;
     };
 
-    // Validate input
     if (!email || !password) {
       return NextResponse.json(
         { error: 'Email and password are required' },
@@ -35,90 +33,78 @@ export async function POST(request: NextRequest) {
       ? (role as UserRole)
       : 'user';
 
-    // Use service role to bypass RLS
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !serviceKey) {
       return NextResponse.json(
-        { error: 'Server configuration error' },
+        { error: 'Server configuration error: missing env vars' },
         { status: 500 }
       );
     }
 
-    const supabaseAdmin = createClient(supabaseUrl, serviceKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-
-    // 1. Create auth user
-    let authData;
-    let signUpError;
-    try {
-      const result = await supabaseAdmin.auth.admin.createUser({
+    // Use raw fetch to Supabase Auth Admin API (avoids SDK fetch issues on Netlify)
+    const createUserRes = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': serviceKey,
+        'Authorization': `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({
         email,
         password,
         email_confirm: true,
         user_metadata: { role: userRole },
-      });
-      authData = result.data;
-      signUpError = result.error;
-    } catch (fetchErr) {
-      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
-      return NextResponse.json(
-        { error: `Supabase auth failed: ${msg}`, supabaseUrl: supabaseUrl?.substring(0, 30) },
-        { status: 502 }
-      );
-    }
+      }),
+    });
 
-    if (signUpError) {
-      // Handle duplicate email
-      if (signUpError.message.includes('already been registered') ||
-          signUpError.message.includes('already exists')) {
+    const createUserData = await createUserRes.json();
+
+    if (!createUserRes.ok) {
+      const errMsg = createUserData?.msg || createUserData?.message || createUserData?.error || 'Failed to create user';
+      if (typeof errMsg === 'string' && (errMsg.includes('already') || errMsg.includes('exists'))) {
         return NextResponse.json(
           { error: 'An account with this email already exists' },
           { status: 409 }
         );
       }
       return NextResponse.json(
-        { error: signUpError.message },
-        { status: 400 }
+        { error: errMsg },
+        { status: createUserRes.status }
       );
     }
 
-    if (!authData.user) {
-      return NextResponse.json(
-        { error: 'Failed to create user' },
-        { status: 500 }
-      );
-    }
+    const userId = createUserData?.id;
 
-    // 2. Insert into public.users table (service role bypasses RLS)
-    const { error: insertError } = await supabaseAdmin
-      .from('users')
-      .upsert(
-        {
-          id: authData.user.id,
+    // Insert into public.users table via REST API (service role bypasses RLS)
+    if (userId) {
+      await fetch(`${supabaseUrl}/rest/v1/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': serviceKey,
+          'Authorization': `Bearer ${serviceKey}`,
+          'Prefer': 'resolution=merge-duplicates',
+        },
+        body: JSON.stringify({
+          id: userId,
           email,
           role: userRole,
-        },
-        { onConflict: 'id' }
-      );
-
-    if (insertError) {
-      console.error('Failed to insert user record:', insertError);
-      // Don't fail registration — auth user exists, profile can be synced later
+        }),
+      });
     }
 
     return NextResponse.json({
       success: true,
       message: 'Account created successfully. You can now log in.',
-      userId: authData.user.id,
+      userId,
     });
   } catch (err) {
     console.error('Register error:', err);
     const message = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json(
-      { error: message },
+      { error: `Server error: ${message}` },
       { status: 500 }
     );
   }
