@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const systemPrompt = `You are a verified product advisor for W3Commerce, a Web3 Social Commerce platform.
+    const systemPrompt = `You are a verified product advisor for WellKOC, a Web3 Social Commerce platform.
 You help customers find products, answer questions, and facilitate purchases.
 
 Rules:
