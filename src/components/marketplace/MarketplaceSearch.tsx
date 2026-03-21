@@ -1,50 +1,44 @@
 'use client'
-import { useRouter } from 'next/navigation'
-import { useState, useCallback } from 'react'
-import { Search, X } from 'lucide-react'
+
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useState } from 'react'
 
 interface Props {
   defaultValue?: string
 }
 
 export default function MarketplaceSearch({ defaultValue }: Props) {
-  const [query, setQuery] = useState(defaultValue || '')
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const [query, setQuery] = useState(defaultValue || '')
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const trimmed = query.trim()
-    if (trimmed) {
-      router.push(`/marketplace?q=${encodeURIComponent(trimmed)}`)
+    const params = new URLSearchParams(searchParams.toString())
+    if (query.trim()) {
+      params.set('q', query.trim())
     } else {
-      router.push('/marketplace')
+      params.delete('q')
     }
-  }, [query, router])
-
-  const handleClear = () => {
-    setQuery('')
-    router.push('/marketplace')
+    params.delete('page')
+    router.push(`/marketplace?${params.toString()}`)
   }
 
   return (
-    <form onSubmit={handleSubmit} className="relative">
-      <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+    <form onSubmit={handleSubmit} className="flex gap-2">
       <input
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Tìm sản phẩm, thương hiệu, danh mục..."
-        className="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+        placeholder="T\u00ECm ki\u1EBFm s\u1EA3n ph\u1EA9m..."
+        className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
       />
-      {query && (
-        <button
-          type="button"
-          onClick={handleClear}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-        >
-          <X size={14} />
-        </button>
-      )}
+      <button
+        type="submit"
+        className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-colors"
+      >
+        T\u00ECm
+      </button>
     </form>
   )
 }
