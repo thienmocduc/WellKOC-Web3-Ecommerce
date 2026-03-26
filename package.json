@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
+    "dev": "cd frontend && npx vite --host --port 5173",
+    "build": "cd frontend && npm run build",
+    "start": "cd frontend && npx vite preview",
+    "lint": "cd frontend && npm run lint",
     "db:push": "supabase db push",
     "db:types": "supabase gen types typescript --local > src/types/database.ts"
   },

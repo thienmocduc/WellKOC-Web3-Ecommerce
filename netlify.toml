@@ -1,17 +1,15 @@
 [build]
-  command = "npm run build"
-  publish = ".next"
-
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
+  base = "frontend"
+  command = "npm install && npm run build"
+  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
-  NEXT_TELEMETRY_DISABLED = "1"
+  VITE_API_URL = "https://api.wellkoc.com/api/v1"
+  VITE_WS_URL = "wss://api.wellkoc.com/ws"
 
-# Placeholder env vars so build doesn't crash during static generation
-# Override these in Netlify dashboard → Site settings → Environment variables
-  NEXT_PUBLIC_SUPABASE_URL = "https://placeholder.supabase.co"
-  NEXT_PUBLIC_SUPABASE_ANON_KEY = "placeholder"
-  NEXT_PUBLIC_WC_PROJECT_ID = "placeholder"
-  NEXT_PUBLIC_CONTRACT_NETWORK = "mumbai"
+# SPA routing - all routes go to index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

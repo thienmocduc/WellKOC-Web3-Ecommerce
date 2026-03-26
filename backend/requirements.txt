@@ -1,0 +1,72 @@
+# WellKOC Backend — Python Dependencies
+# FastAPI + async stack
+
+# === Core Framework ===
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+python-multipart==0.0.12
+
+# === Database ===
+sqlalchemy==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+pgvector==0.3.5
+
+# === Cache / Queue ===
+redis==5.2.0
+celery[redis]==5.4.0
+flower==2.0.1
+
+# === Auth / Security ===
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+pyotp==2.9.0
+
+# === Validation ===
+pydantic==2.10.0
+pydantic-settings==2.6.0
+email-validator==2.2.0
+
+# === HTTP Client ===
+httpx==0.28.0
+aiohttp==3.11.0
+
+# === Blockchain ===
+web3==7.6.0
+eth-account==0.13.0
+
+# === AI / LLM ===
+anthropic==0.40.0
+
+# === Storage ===
+boto3==1.35.0
+python-magic==0.4.27
+
+# === Search ===
+elasticsearch[async]==8.15.0
+
+# === Payments ===
+stripe==11.2.0
+
+# === Image Processing ===
+Pillow==11.0.0
+
+# === Monitoring ===
+prometheus-fastapi-instrumentator==7.0.0
+sentry-sdk[fastapi]==2.19.0
+
+# === Utils ===
+python-dotenv==1.0.1
+qrcode[pil]==8.0
+pytz==2024.2
+babel==2.16.0
+shortuuid==1.0.13
+
+# === Testing ===
+pytest==8.3.0
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+httpx==0.28.0
+faker==33.0.0
+factory-boy==3.3.1
+locust==2.32.0

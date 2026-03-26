@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WellKOC — UI/UX Preview — Chakra 4567 Design System</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   WELLKOC DESIGN SYSTEM — CHAKRA 4-5-6-7
+   Heart → Throat → Third Eye → Crown
+   ═══════════════════════════════════════════ */
+
+:root {
+  /* Chakra 4 — Heart — Emerald Green */
+  --c4: #4ade80; --c4d: #22c55e; --c4l: #86efac; --c4bg: rgba(74,222,128,.08); --c4bdr: rgba(74,222,128,.2);
+  /* Chakra 5 — Throat — Sky Blue */
+  --c5: #38bdf8; --c5d: #0ea5e9; --c5l: #7dd3fc; --c5bg: rgba(56,189,248,.08); --c5bdr: rgba(56,189,248,.2);
+  /* Chakra 6 — Third Eye — Indigo */
+  --c6: #818cf8; --c6d: #6366f1; --c6l: #a5b4fc; --c6bg: rgba(129,140,248,.08); --c6bdr: rgba(129,140,248,.2);
+  /* Chakra 7 — Crown — Violet + Gold */
+  --c7: #c084fc; --c7d: #a855f7; --c7l: #d8b4fe; --c7bg: rgba(192,132,252,.08); --c7bdr: rgba(192,132,252,.2);
+  --gold: #fbbf24; --goldd: #f59e0b; --goldl: #fde68a; --goldbg: rgba(251,191,36,.08);
+  /* Neutrals */
+  --bg: #06080f; --bg2: #0b0f1a; --bg3: #111827; --bg4: #1e293b;
+  --navy: #f1f5f9; --wd: #94a3b8; --wdd: #64748b; --wddd: #475569;
+  /* Chakra gradient */
+  --chakra: linear-gradient(135deg, var(--c4), var(--c5), var(--c6), var(--c7));
+  --chakra-h: linear-gradient(90deg, var(--c4), var(--c5), var(--c6), var(--c7), var(--gold));
+  --chakra-v: linear-gradient(180deg, var(--c7), var(--c6), var(--c5), var(--c4));
+  /* Radius */
+  --r4: 6px; --r8: 10px; --r12: 14px; --r16: 18px; --r24: 24px; --r99: 100px;
+  /* Glass */
+  --glass: rgba(11,15,26,.7); --glass2: rgba(17,24,39,.6);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans', sans-serif; background: var(--bg); color: var(--navy); overflow-x: hidden; }
+a { color: inherit; text-decoration: none; }
+
+/* ═══ ANIMATED BACKGROUND ═══ */
+.chakra-bg {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;
+  background: var(--bg);
+}
+.chakra-bg::before {
+  content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+  background: radial-gradient(ellipse at 20% 50%, rgba(74,222,128,.06) 0%, transparent 50%),
+              radial-gradient(ellipse at 80% 20%, rgba(56,189,248,.06) 0%, transparent 50%),
+              radial-gradient(ellipse at 50% 80%, rgba(129,140,248,.06) 0%, transparent 50%),
+              radial-gradient(ellipse at 70% 60%, rgba(192,132,252,.05) 0%, transparent 50%);
+  animation: chakraFloat 20s ease-in-out infinite;
+}
+@keyframes chakraFloat {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(2%, -3%) rotate(1deg); }
+  50% { transform: translate(-1%, 2%) rotate(-1deg); }
+  75% { transform: translate(3%, 1%) rotate(0.5deg); }
+}
+
+/* ═══ CHAKRA ORB PARTICLES ═══ */
+.orb { position: fixed; border-radius: 50%; filter: blur(60px); opacity: .12; z-index: 0; pointer-events: none; }
+.orb-1 { width: 400px; height: 400px; background: var(--c4); top: 10%; left: -5%; animation: orbFloat1 15s ease-in-out infinite; }
+.orb-2 { width: 350px; height: 350px; background: var(--c5); top: 30%; right: -8%; animation: orbFloat2 18s ease-in-out infinite; }
+.orb-3 { width: 300px; height: 300px; background: var(--c6); bottom: 20%; left: 20%; animation: orbFloat3 22s ease-in-out infinite; }
+.orb-4 { width: 250px; height: 250px; background: var(--c7); bottom: 10%; right: 15%; animation: orbFloat4 16s ease-in-out infinite; }
+@keyframes orbFloat1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(80px,40px)} }
+@keyframes orbFloat2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-60px,50px)} }
+@keyframes orbFloat3 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(50px,-60px)} }
+@keyframes orbFloat4 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-40px,-30px)} }
+
+.page-wrap { position: relative; z-index: 1; }
+.container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+.section-divider { height: 1px; background: var(--chakra-h); opacity: .15; margin: 0; }
+
+/* ═══ SECTION LABELS ═══ */
+.section-label { font-size: .6rem; letter-spacing: .25em; text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.section-label .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+/* ═══ TOP BAR ═══ */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: 56px; display: flex; align-items: center; padding: 0 20px; gap: 16px;
+  background: rgba(6,8,15,.85); backdrop-filter: blur(20px) saturate(1.5);
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.topbar::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+  background: var(--chakra-h); opacity: .3;
+}
+.logo { font-size: 1.15rem; font-weight: 800; letter-spacing: -.02em; }
+.logo span { background: var(--chakra); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.nav-tabs { display: flex; gap: 2px; margin-left: 16px; }
+.ntab {
+  font-size: .72rem; font-weight: 500; padding: 6px 14px; border-radius: var(--r99);
+  background: none; border: 1px solid transparent; color: var(--wd); cursor: pointer;
+  transition: all .2s; display: flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.ntab:hover { background: var(--bg3); color: var(--navy); }
+.ntab.on { background: var(--bg3); color: #fff; border-color: rgba(255,255,255,.06); }
+.ntab .d { width: 5px; height: 5px; border-radius: 50%; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.btn { font-size: .72rem; font-weight: 600; padding: 7px 16px; border-radius: var(--r8); cursor: pointer; border: none; transition: all .2s; white-space: nowrap; }
+.btn-chakra {
+  background: var(--chakra); color: #fff; position: relative; overflow: hidden;
+}
+.btn-chakra::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.2), transparent);
+  transform: translateX(-100%); animation: shimmer 3s infinite;
+}
+@keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+.btn-glass { background: var(--glass2); color: var(--navy); border: 1px solid rgba(255,255,255,.08); }
+.btn-glass:hover { background: var(--bg4); border-color: rgba(255,255,255,.12); }
+.wallet-pill {
+  font-size: .65rem; padding: 5px 12px; border: 1px solid var(--c4bdr); background: var(--c4bg);
+  color: var(--c4); border-radius: var(--r99); display: flex; align-items: center; gap: 5px;
+}
+.wallet-pill .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--c4); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+.lang-toggle {
+  font-size: .68rem; font-weight: 700; padding: 5px 12px; border: 1.5px solid var(--c6bdr);
+  border-radius: var(--r99); background: var(--c6bg); color: var(--c6); cursor: pointer;
+  letter-spacing: .05em;
+}
+.admin-btn {
+  width: 32px; height: 32px; border-radius: var(--r8); background: var(--bg3);
+  border: 1px solid rgba(255,255,255,.06); cursor: pointer; display: flex; align-items: center;
+  justify-content: center; color: var(--wd); font-size: 14px;
+}
+.admin-btn:hover { background: var(--bg4); }
+
+/* ═══ HERO ═══ */
+.hero { padding: 120px 0 80px; position: relative; }
+.hero-tags { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.hero-tag {
+  font-size: .62rem; padding: 4px 12px; border-radius: var(--r99);
+  border: 1px solid; display: inline-flex; align-items: center; gap: 5px;
+}
+.hero-tag.c4 { border-color: var(--c4bdr); color: var(--c4); background: var(--c4bg); }
+.hero-tag.c6 { border-color: var(--c6bdr); color: var(--c6); background: var(--c6bg); }
+.hero h1 {
+  font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.15;
+  margin-bottom: 20px; letter-spacing: -.03em;
+}
+.hero h1 .chakra-text {
+  background: var(--chakra); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-size: 200% auto; animation: gradientShift 4s ease-in-out infinite;
+}
+@keyframes gradientShift {
+  0%{background-position:0% center} 50%{background-position:100% center} 100%{background-position:0% center}
+}
+.hero h1 .dim { color: var(--wdd); }
+.hero-desc { font-size: .95rem; color: var(--wd); max-width: 600px; line-height: 1.7; margin-bottom: 32px; }
+.hero-desc strong { color: var(--navy); font-weight: 700; }
+.hero-ctas { display: flex; gap: 12px; margin-bottom: 40px; flex-wrap: wrap; }
+.hero-ctas .btn-chakra { font-size: .82rem; padding: 12px 28px; border-radius: var(--r12); }
+.hero-ctas .btn-glass { font-size: .82rem; padding: 12px 28px; border-radius: var(--r12); }
+
+/* Hero Stats */
+.hero-stats { display: flex; gap: 32px; flex-wrap: wrap; }
+.hero-stat { text-align: left; }
+.hero-stat .val {
+  font-size: 1.5rem; font-weight: 800; letter-spacing: -.02em;
+  background: var(--chakra); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero-stat .lbl { font-size: .65rem; color: var(--wdd); text-transform: uppercase; letter-spacing: .1em; }
+
+/* ═══ FEATURE CARDS — 4 PILLARS ═══ */
+.features { padding: 80px 0; }
+.features h2 { font-size: 1.6rem; font-weight: 800; margin-bottom: 8px; }
+.features .sub { color: var(--wdd); font-size: .85rem; margin-bottom: 40px; }
+.feat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.feat-card {
+  padding: 28px 24px; border-radius: var(--r16); border: 1px solid rgba(255,255,255,.04);
+  background: var(--glass2); backdrop-filter: blur(10px);
+  transition: all .3s; position: relative; overflow: hidden; cursor: pointer;
+}
+.feat-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  opacity: 0; transition: opacity .3s;
+}
+.feat-card:hover { border-color: rgba(255,255,255,.08); transform: translateY(-4px); }
+.feat-card:hover::before { opacity: 1; }
+.feat-card:nth-child(1)::before { background: linear-gradient(90deg, var(--c4), var(--c5)); }
+.feat-card:nth-child(2)::before { background: linear-gradient(90deg, var(--c5), var(--c6)); }
+.feat-card:nth-child(3)::before { background: linear-gradient(90deg, var(--c6), var(--c7)); }
+.feat-card:nth-child(4)::before { background: linear-gradient(90deg, var(--c7), var(--gold)); }
+.feat-icon {
+  width: 44px; height: 44px; border-radius: var(--r12); display: flex; align-items: center;
+  justify-content: center; font-size: 20px; margin-bottom: 16px;
+}
+.feat-card:nth-child(1) .feat-icon { background: var(--c4bg); border: 1px solid var(--c4bdr); }
+.feat-card:nth-child(2) .feat-icon { background: var(--c5bg); border: 1px solid var(--c5bdr); }
+.feat-card:nth-child(3) .feat-icon { background: var(--c6bg); border: 1px solid var(--c6bdr); }
+.feat-card:nth-child(4) .feat-icon { background: var(--goldbg); border: 1px solid rgba(251,191,36,.2); }
+.feat-card h3 { font-size: .92rem; font-weight: 700; margin-bottom: 8px; }
+.feat-card p { font-size: .75rem; color: var(--wd); line-height: 1.6; }
+
+/* ═══ HOW IT WORKS — 5 STEPS ═══ */
+.steps { padding: 80px 0; }
+.steps h2 { font-size: 1.6rem; font-weight: 800; margin-bottom: 40px; text-align: center; }
+.steps-row { display: flex; gap: 0; position: relative; }
+.steps-row::before {
+  content: ''; position: absolute; top: 28px; left: 40px; right: 40px; height: 2px;
+  background: var(--chakra-h); opacity: .3;
+}
+.step { flex: 1; text-align: center; position: relative; }
+.step-num {
+  width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-size: 1.1rem; font-weight: 800; margin: 0 auto 16px;
+  position: relative; z-index: 1;
+}
+.step:nth-child(1) .step-num { background: var(--c4bg); border: 2px solid var(--c4); color: var(--c4); box-shadow: 0 0 20px rgba(74,222,128,.15); }
+.step:nth-child(2) .step-num { background: var(--c5bg); border: 2px solid var(--c5); color: var(--c5); box-shadow: 0 0 20px rgba(56,189,248,.15); }
+.step:nth-child(3) .step-num { background: var(--c6bg); border: 2px solid var(--c6); color: var(--c6); box-shadow: 0 0 20px rgba(129,140,248,.15); }
+.step:nth-child(4) .step-num { background: var(--c7bg); border: 2px solid var(--c7); color: var(--c7); box-shadow: 0 0 20px rgba(192,132,252,.15); }
+.step:nth-child(5) .step-num { background: var(--goldbg); border: 2px solid var(--gold); color: var(--gold); box-shadow: 0 0 20px rgba(251,191,36,.15); }
+.step h4 { font-size: .82rem; font-weight: 700; margin-bottom: 4px; }
+.step p { font-size: .7rem; color: var(--wdd); padding: 0 8px; }
+
+/* ═══ PRODUCT CARDS ═══ */
+.products { padding: 80px 0; }
+.products h2 { font-size: 1.6rem; font-weight: 800; margin-bottom: 8px; }
+.product-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 24px; }
+.product-card {
+  border-radius: var(--r16); border: 1px solid rgba(255,255,255,.04); background: var(--glass2);
+  overflow: hidden; transition: all .3s; cursor: pointer;
+}
+.product-card:hover { border-color: rgba(255,255,255,.08); transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,.3); }
+.prod-img {
+  height: 200px; background: var(--bg3); display: flex; align-items: center; justify-content: center;
+  font-size: 2.5rem; position: relative;
+}
+.prod-img .dpp-badge {
+  position: absolute; top: 10px; left: 10px; font-size: .55rem; padding: 3px 8px;
+  border-radius: var(--r4); background: var(--c4bg); border: 1px solid var(--c4bdr);
+  color: var(--c4); font-weight: 600; backdrop-filter: blur(8px);
+}
+.prod-img .discount-badge {
+  position: absolute; top: 10px; right: 10px; font-size: .6rem; padding: 3px 8px;
+  border-radius: var(--r4); background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.3);
+  color: #f87171; font-weight: 700;
+}
+.prod-info { padding: 16px; }
+.prod-name { font-size: .82rem; font-weight: 600; margin-bottom: 6px; line-height: 1.4; }
+.prod-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.prod-rating { font-size: .7rem; color: var(--gold); display: flex; align-items: center; gap: 3px; }
+.prod-sold { font-size: .65rem; color: var(--wdd); }
+.prod-price-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+.prod-price { font-size: 1rem; font-weight: 800; background: var(--chakra); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.prod-price-old { font-size: .72rem; color: var(--wddd); text-decoration: line-through; }
+.prod-actions { display: flex; gap: 8px; }
+.prod-actions .btn { flex: 1; text-align: center; font-size: .7rem; padding: 8px; }
+
+/* ═══ KOC DASHBOARD PREVIEW ═══ */
+.dashboard { padding: 80px 0; }
+.dash-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.kpi-card {
+  padding: 20px; border-radius: var(--r12); border: 1px solid rgba(255,255,255,.04);
+  background: var(--glass2); position: relative; overflow: hidden;
+}
+.kpi-card::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+}
+.kpi-card:nth-child(1)::after { background: var(--c4); }
+.kpi-card:nth-child(2)::after { background: var(--c5); }
+.kpi-card:nth-child(3)::after { background: var(--c6); }
+.kpi-card:nth-child(4)::after { background: var(--c7); }
+.kpi-label { font-size: .6rem; color: var(--wdd); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px; }
+.kpi-val { font-size: 1.5rem; font-weight: 800; margin-bottom: 4px; }
+.kpi-card:nth-child(1) .kpi-val { color: var(--c4); }
+.kpi-card:nth-child(2) .kpi-val { color: var(--c5); }
+.kpi-card:nth-child(3) .kpi-val { color: var(--c6); }
+.kpi-card:nth-child(4) .kpi-val { color: var(--c7); }
+.kpi-change { font-size: .65rem; color: var(--c4); }
+.kpi-change.down { color: #f87171; }
+
+/* Commission Chart */
+.chart-area {
+  border-radius: var(--r16); border: 1px solid rgba(255,255,255,.04);
+  background: var(--glass2); padding: 24px; margin-bottom: 24px;
+}
+.chart-bars { display: flex; align-items: flex-end; gap: 8px; height: 160px; margin-top: 16px; }
+.chart-bar {
+  flex: 1; border-radius: 4px 4px 0 0; position: relative; min-height: 8px;
+  transition: all .3s; cursor: pointer;
+}
+.chart-bar:hover { opacity: .8; }
+.chart-bar .tip {
+  position: absolute; top: -28px; left: 50%; transform: translateX(-50%);
+  font-size: .6rem; background: var(--bg3); padding: 2px 6px; border-radius: 4px;
+  white-space: nowrap; opacity: 0; transition: opacity .2s;
+}
+.chart-bar:hover .tip { opacity: 1; }
+
+/* ═══ COMMISSION TIER VISUAL ═══ */
+.tiers { padding: 80px 0; }
+.tier-flow {
+  display: flex; align-items: center; justify-content: center; gap: 0;
+  position: relative; padding: 40px 0;
+}
+.tier-node {
+  text-align: center; padding: 24px 20px; border-radius: var(--r16);
+  border: 1px solid rgba(255,255,255,.04); background: var(--glass2);
+  min-width: 160px; position: relative; z-index: 1;
+}
+.tier-pct { font-size: 2rem; font-weight: 900; margin-bottom: 4px; }
+.tier-name { font-size: .72rem; font-weight: 600; margin-bottom: 4px; }
+.tier-desc { font-size: .62rem; color: var(--wdd); }
+.tier-arrow { font-size: 1.2rem; padding: 0 12px; z-index: 1; }
+
+/* ═══ BLOCKCHAIN DPP ═══ */
+.dpp-section { padding: 80px 0; }
+.dpp-card {
+  border-radius: var(--r16); border: 1px solid rgba(129,140,248,.15);
+  background: var(--glass2); padding: 32px; position: relative; overflow: hidden;
+}
+.dpp-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--chakra-h);
+}
+.dpp-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+.dpp-icon { width: 56px; height: 56px; border-radius: var(--r12); background: var(--c6bg); border: 1px solid var(--c6bdr); display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.dpp-badges { display: flex; gap: 6px; margin-top: 6px; }
+.dpp-badge { font-size: .58rem; padding: 2px 8px; border-radius: var(--r4); font-weight: 600; }
+.dpp-badge.verified { background: var(--c4bg); border: 1px solid var(--c4bdr); color: var(--c4); }
+.dpp-badge.zkp { background: var(--c6bg); border: 1px solid var(--c6bdr); color: var(--c6); }
+.dpp-badge.chain { background: var(--c7bg); border: 1px solid var(--c7bdr); color: var(--c7); }
+.dpp-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+.dpp-field { padding: 12px; border-radius: var(--r8); background: var(--bg3); }
+.dpp-field-label { font-size: .55rem; color: var(--wddd); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+.dpp-field-value { font-size: .78rem; font-weight: 600; }
+.dpp-timeline { display: flex; flex-direction: column; gap: 8px; }
+.dpp-event { display: flex; gap: 12px; align-items: flex-start; padding: 8px 12px; border-radius: var(--r8); background: var(--bg3); }
+.dpp-event-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.dpp-event-time { font-size: .6rem; color: var(--wddd); min-width: 100px; }
+.dpp-event-title { font-size: .75rem; font-weight: 600; }
+.dpp-event-detail { font-size: .65rem; color: var(--wdd); }
+
+/* ═══ AUTH PAGES ═══ */
+.auth-section { padding: 80px 0; }
+.auth-preview { display: flex; gap: 24px; }
+.auth-card {
+  flex: 1; border-radius: var(--r24); border: 1px solid rgba(255,255,255,.04);
+  background: var(--glass2); backdrop-filter: blur(20px); padding: 40px 32px;
+  position: relative; overflow: hidden;
+}
+.auth-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--chakra-h);
+}
+.auth-card h3 { font-size: 1.2rem; font-weight: 800; margin-bottom: 6px; }
+.auth-card .sub { font-size: .78rem; color: var(--wdd); margin-bottom: 24px; }
+.input-group { margin-bottom: 16px; }
+.input-group label { display: block; font-size: .68rem; font-weight: 600; color: var(--wd); margin-bottom: 6px; }
+.input-field {
+  width: 100%; padding: 10px 14px; border-radius: var(--r8); border: 1px solid var(--bg4);
+  background: var(--bg3); color: var(--navy); font-size: .82rem; outline: none;
+  transition: border-color .2s;
+}
+.input-field:focus { border-color: var(--c6); }
+.input-field::placeholder { color: var(--wddd); }
+.role-selector { display: flex; gap: 8px; margin-bottom: 20px; }
+.role-opt {
+  flex: 1; padding: 12px; border-radius: var(--r12); border: 1px solid var(--bg4);
+  background: var(--bg3); text-align: center; cursor: pointer; transition: all .2s;
+}
+.role-opt.active { border-color: var(--c6); background: var(--c6bg); }
+.role-opt .role-icon { font-size: 1.2rem; margin-bottom: 4px; }
+.role-opt .role-name { font-size: .72rem; font-weight: 600; }
+.role-opt .role-desc { font-size: .6rem; color: var(--wdd); }
+.auth-btn {
+  width: 100%; padding: 12px; border-radius: var(--r12); border: none;
+  background: var(--chakra); color: #fff; font-size: .85rem; font-weight: 700;
+  cursor: pointer; position: relative; overflow: hidden;
+}
+.auth-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--wddd); font-size: .7rem; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--bg4); }
+.social-btns { display: flex; gap: 8px; }
+.social-btn {
+  flex: 1; padding: 10px; border-radius: var(--r8); border: 1px solid var(--bg4);
+  background: var(--bg3); color: var(--wd); font-size: .75rem; text-align: center;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.social-btn:hover { border-color: rgba(255,255,255,.1); }
+
+/* ═══ FOOTER ═══ */
+.footer {
+  border-top: 1px solid rgba(255,255,255,.04); padding: 48px 0 24px;
+  margin-top: 80px; position: relative;
+}
+.footer::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: var(--chakra-h); opacity: .3;
+}
+.footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 32px; margin-bottom: 32px; }
+.footer-brand .logo { margin-bottom: 12px; }
+.footer-brand p { font-size: .75rem; color: var(--wdd); line-height: 1.6; max-width: 280px; }
+.footer-col h4 { font-size: .72rem; font-weight: 700; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .08em; }
+.footer-col a { display: block; font-size: .75rem; color: var(--wdd); padding: 4px 0; transition: color .2s; }
+.footer-col a:hover { color: var(--navy); }
+.footer-bottom { display: flex; justify-content: space-between; align-items: center; padding-top: 20px; border-top: 1px solid rgba(255,255,255,.04); }
+.footer-bottom span { font-size: .68rem; color: var(--wddd); }
+.footer-socials { display: flex; gap: 8px; }
+.footer-social {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--bg3); border: 1px solid rgba(255,255,255,.06);
+  display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--wd);
+  cursor: pointer; transition: all .2s;
+}
+.footer-social:hover { background: var(--bg4); }
+
+/* ═══ TECH BADGES ═══ */
+.tech-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.tech-badge {
+  font-size: .58rem; padding: 4px 10px; border-radius: var(--r4); font-weight: 600;
+  border: 1px solid; display: inline-flex; align-items: center; gap: 4px;
+}
+.tech-badge.poly { border-color: var(--c6bdr); color: var(--c6); background: var(--c6bg); }
+.tech-badge.sc { border-color: var(--c4bdr); color: var(--c4); background: var(--c4bg); }
+.tech-badge.ai { border-color: var(--c7bdr); color: var(--c7); background: var(--c7bg); }
+.tech-badge.fast { border-color: var(--c5bdr); color: var(--c5); background: var(--c5bg); }
+
+/* ═══ RESPONSIVE ═══ */
+@media(max-width:900px){
+  .feat-grid, .product-grid { grid-template-columns: repeat(2, 1fr); }
+  .dash-grid { grid-template-columns: repeat(2, 1fr); }
+  .steps-row { flex-direction: column; gap: 16px; }
+  .steps-row::before { display: none; }
+  .tier-flow { flex-direction: column; }
+  .tier-arrow { transform: rotate(90deg); }
+  .auth-preview { flex-direction: column; }
+  .dpp-fields { grid-template-columns: 1fr 1fr; }
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+}
+@media(max-width:600px){
+  .feat-grid, .product-grid { grid-template-columns: 1fr; }
+  .dash-grid { grid-template-columns: 1fr; }
+  .nav-tabs { display: none; }
+  .dpp-fields { grid-template-columns: 1fr; }
+}
+
+/* ═══ PAGE SEPARATOR ═══ */
+.page-sep {
+  padding: 20px 0; text-align: center;
+  font-size: .6rem; color: var(--wddd); letter-spacing: .3em; text-transform: uppercase;
+}
+.page-sep::before, .page-sep::after { content: ''; display: inline-block; width: 40px; height: 1px; background: var(--bg4); vertical-align: middle; margin: 0 12px; }
+</style>
+</head>
+<body>
+
+<div class="chakra-bg"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+<div class="orb orb-4"></div>
+
+<div class="page-wrap">
+
+<!-- ═══ TOP BAR ═══ -->
+<nav class="topbar">
+  <div class="logo">Well<span>KOC</span></div>
+  <div class="nav-tabs">
+    <button class="ntab on"><span class="d" style="background:var(--gold)"></span>Trang chủ</button>
+    <button class="ntab"><span class="d" style="background:var(--c4)"></span>Marketplace</button>
+    <button class="ntab"><span class="d" style="background:var(--c5)"></span>Video Feed</button>
+    <button class="ntab"><span class="d" style="background:#f87171"></span>KOC Academy</button>
+    <button class="ntab"><span class="d" style="background:var(--c6)"></span>Blockchain DPP</button>
+    <button class="ntab"><span class="d" style="background:var(--c7)"></span>50 AI Agents</button>
+  </div>
+  <div class="topbar-right">
+    <button class="lang-toggle">VI</button>
+    <div class="wallet-pill"><span class="pulse"></span>Connect Wallet</div>
+    <button class="btn btn-chakra">Đăng nhập</button>
+    <button class="admin-btn">☰</button>
+  </div>
+</nav>
+
+<!-- ═══ HERO SECTION ═══ -->
+<section class="hero container">
+  <div class="hero-tags">
+    <span class="hero-tag c4">◎ Web3 Social Commerce Platform</span>
+    <span class="hero-tag c6">Beta 2026</span>
+  </div>
+  <h1>
+    Thương Mại Cộng Đồng<br>
+    <span class="chakra-text">Kỷ Nguyên Web3</span><br>
+    <span class="dim">Hoa Hồng On-Chain</span>
+  </h1>
+  <p class="hero-desc">
+    Nền tảng kết nối <strong>Vendor · KOC/KOL · Buyer</strong> với AI Agents thông minh,
+    hoa hồng on-chain minh bạch và sản phẩm verified bằng Digital Product Passport blockchain.
+  </p>
+  <div class="hero-ctas">
+    <button class="btn btn-chakra">Bắt đầu miễn phí →</button>
+    <button class="btn btn-glass">Khám phá KOC Academy</button>
+  </div>
+  <div class="hero-stats">
+    <div class="hero-stat"><div class="val">30s</div><div class="lbl">Tạo viral script bằng AI</div></div>
+    <div class="hero-stat"><div class="val">100%</div><div class="lbl">Hoa hồng on-chain minh bạch</div></div>
+    <div class="hero-stat"><div class="val">5</div><div class="lbl">Loại commission rule</div></div>
+    <div class="hero-stat"><div class="val">0%</div><div class="lbl">Phí ẩn, không bị quỵt</div></div>
+    <div class="hero-stat"><div class="val">DPP</div><div class="lbl">Verified blockchain product</div></div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ═══ 4 PILLARS ═══ -->
+<section class="features container">
+  <div class="section-label"><span class="dot" style="background:var(--c6)"></span><span style="color:var(--c6)">Nền tảng WellKOC</span></div>
+  <h2>4 Trụ Cột Công Nghệ</h2>
+  <p class="sub">Kết hợp AI + Blockchain + Social Commerce tạo nên hệ sinh thái hoàn chỉnh</p>
+  <div class="feat-grid">
+    <div class="feat-card">
+      <div class="feat-icon">🤖</div>
+      <h3>111 AI Agents</h3>
+      <p>Từ tạo caption viral, phân tích đối thủ, tới dự đoán trend — AI hỗ trợ mọi bước trong hành trình KOC</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">⛓</div>
+      <h3>On-chain Commission</h3>
+      <p>T1 40% · T2 13% · Pool 17% — hoa hồng ghi nhận trên Polygon, không bao giờ bị quỵt hay chậm trả</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🛡</div>
+      <h3>Digital Product Passport</h3>
+      <p>Mỗi sản phẩm có NFT chứng nhận nguồn gốc, chất lượng, ZK-proof — người mua hoàn toàn yên tâm</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🔴</div>
+      <h3>Live Commerce + Group Buy</h3>
+      <p>KOC livestream bán hàng, AI gợi ý sản phẩm real-time, group buy giá sỉ — tất cả trong một nền tảng</p>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ═══ HOW IT WORKS ═══ -->
+<section class="steps container">
+  <div class="section-label" style="justify-content:center"><span class="dot" style="background:var(--c4)"></span><span style="color:var(--c4)">Quy trình</span></div>
+  <h2>Cách WellKOC Hoạt Động</h2>
+  <div class="steps-row">
+    <div class="step">
+      <div class="step-num">01</div>
+      <h4>Đăng ký & Kết nối</h4>
+      <p>Tạo tài khoản, chọn role, kết nối ví Web3</p>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <h4>Khám phá & Review</h4>
+      <p>Duyệt sản phẩm DPP, tạo content bằng AI Agent</p>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <h4>Chia sẻ & Bán hàng</h4>
+      <p>Đăng video, livestream, affiliate link tracking</p>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <h4>Nhận hoa hồng On-chain</h4>
+      <p>Commission tự động qua smart contract Polygon</p>
+    </div>
+    <div class="step">
+      <div class="step-num">05</div>
+      <h4>Phát triển & Nâng cấp</h4>
+      <p>Pool ranking, Creator Token, staking rewards</p>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ═══ PRODUCTS PREVIEW ═══ -->
+<section class="products container">
+  <div class="section-label"><span class="dot" style="background:var(--c5)"></span><span style="color:var(--c5)">Marketplace</span></div>
+  <h2>Sản Phẩm Nổi Bật</h2>
+  <div class="product-grid">
+    <div class="product-card">
+      <div class="prod-img" style="background:linear-gradient(135deg,#1a1a2e,#16213e)">
+        <span class="dpp-badge">✓ DPP Verified</span>
+        <span class="discount-badge">-25%</span>
+        ✨
+      </div>
+      <div class="prod-info">
+        <div class="prod-name">Serum Vitamin C 20% — Hàn Quốc</div>
+        <div class="prod-meta"><span class="prod-rating">★ 4.9</span><span class="prod-sold">2,100 đã bán</span></div>
+        <div class="prod-price-row"><span class="prod-price">₫520,000</span><span class="prod-price-old">₫693,000</span></div>
+        <div class="prod-actions"><button class="btn btn-glass">Xem DPP</button><button class="btn btn-chakra">Mua ngay</button></div>
+      </div>
+    </div>
+    <div class="product-card">
+      <div class="prod-img" style="background:linear-gradient(135deg,#0d1117,#161b22)">
+        <span class="dpp-badge">✓ DPP Verified</span>
+        🎧
+      </div>
+      <div class="prod-info">
+        <div class="prod-name">Tai nghe Bluetooth Pro ANC</div>
+        <div class="prod-meta"><span class="prod-rating">★ 4.6</span><span class="prod-sold">560 đã bán</span></div>
+        <div class="prod-price-row"><span class="prod-price">₫1,200,000</span></div>
+        <div class="prod-actions"><button class="btn btn-glass">Xem DPP</button><button class="btn btn-chakra">Mua ngay</button></div>
+      </div>
+    </div>
+    <div class="product-card">
+      <div class="prod-img" style="background:linear-gradient(135deg,#1a0a2e,#2d1b69)">
+        <span class="dpp-badge">✓ DPP Verified</span>
+        🍵
+      </div>
+      <div class="prod-info">
+        <div class="prod-name">Trà xanh Matcha Nhật nguyên chất</div>
+        <div class="prod-meta"><span class="prod-rating">★ 4.7</span><span class="prod-sold">1,800 đã bán</span></div>
+        <div class="prod-price-row"><span class="prod-price">₫380,000</span></div>
+        <div class="prod-actions"><button class="btn btn-glass">Xem DPP</button><button class="btn btn-chakra">Mua ngay</button></div>
+      </div>
+    </div>
+    <div class="product-card">
+      <div class="prod-img" style="background:linear-gradient(135deg,#0a1628,#1e3a5f)">
+        <span class="dpp-badge">✓ DPP Verified</span>
+        <span class="discount-badge">-15%</span>
+        🧴
+      </div>
+      <div class="prod-info">
+        <div class="prod-name">Son môi Organic Rose — Pháp</div>
+        <div class="prod-meta"><span class="prod-rating">★ 4.8</span><span class="prod-sold">1,250 đã bán</span></div>
+        <div class="prod-price-row"><span class="prod-price">₫299,000</span><span class="prod-price-old">₫352,000</span></div>
+        <div class="prod-actions"><button class="btn btn-glass">Xem DPP</button><button class="btn btn-chakra">Mua ngay</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ═══ KOC DASHBOARD ═══ -->
+<section class="dashboard container">
+  <div class="section-label"><span class="dot" style="background:var(--c7)"></span><span style="color:var(--c7)">Dashboard KOC</span></div>
+  <h2>Bảng Điều Khiển KOC</h2>
+  <div class="dash-grid">
+    <div class="kpi-card"><div class="kpi-label">Tổng hoa hồng</div><div class="kpi-val">₫12,450,000</div><div class="kpi-change">↑ 23% so tuần trước</div></div>
+    <div class="kpi-card"><div class="kpi-label">Đơn hàng qua link</div><div class="kpi-val">156</div><div class="kpi-change">↑ 12%</div></div>
+    <div class="kpi-card"><div class="kpi-label">Tỷ lệ chuyển đổi</div><div class="kpi-val">4.8%</div><div class="kpi-change down">↓ 0.3%</div></div>
+    <div class="kpi-card"><div class="kpi-label">Người theo dõi</div><div class="kpi-val">8,920</div><div class="kpi-change">↑ 340 tuần này</div></div>
+  </div>
+  <div class="chart-area">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div><span style="font-size:.85rem;font-weight:700">Hoa hồng 12 tuần</span></div>
+      <div style="display:flex;gap:12px">
+        <span class="tech-badge poly">◎ Polygon Mainnet</span>
+        <span class="tech-badge sc">⬡ Smart Contract</span>
+      </div>
+    </div>
+    <div class="chart-bars">
+      <div class="chart-bar" style="height:30%;background:var(--c4)"><span class="tip">T1: ₫2.1M</span></div>
+      <div class="chart-bar" style="height:45%;background:var(--c4)"><span class="tip">T2: ₫3.2M</span></div>
+      <div class="chart-bar" style="height:35%;background:var(--c5)"><span class="tip">T3: ₫2.5M</span></div>
+      <div class="chart-bar" style="height:55%;background:var(--c5)"><span class="tip">T4: ₫3.9M</span></div>
+      <div class="chart-bar" style="height:50%;background:var(--c5)"><span class="tip">T5: ₫3.6M</span></div>
+      <div class="chart-bar" style="height:65%;background:var(--c6)"><span class="tip">T6: ₫4.6M</span></div>
+      <div class="chart-bar" style="height:60%;background:var(--c6)"><span class="tip">T7: ₫4.3M</span></div>
+      <div class="chart-bar" style="height:70%;background:var(--c6)"><span class="tip">T8: ₫5.0M</span></div>
+      <div class="chart-bar" style="height:80%;background:var(--c7)"><span class="tip">T9: ₫5.7M</span></div>
+      <div class="chart-bar" style="height:75%;background:var(--c7)"><span class="tip">T10: ₫5.3M</span></div>
+      <div class="chart-bar" style="height:90%;background:var(--gold)"><span class="tip">T11: ₫6.4M</span></div>
+      <div class="chart-bar" style="height:100%;background:linear-gradient(0deg,var(--c4),var(--gold))"><span class="tip">T12: ₫7.1M</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ═══ COMMISSION TIERS ═══ -->
+<section class="tiers container">
+  <div class="section-label" style="justify-content:center"><span class="dot" style="background:var(--gold)"></span><span style="color:var(--gold)">Commission</span></div>
+  <h2 style="text-align:center;font-size:1.6rem;font-weight:800;margin-bottom:40px">Cấu Trúc Hoa Hồng On-Chain</h2>
+  <div class="tier-flow">
+    <div class="tier-node">
+      <div class="tier-pct" style="color:var(--c4)">40%</div>
+      <div class="tier-name">Tier 1 — KOC Trực tiếp</div>
+      <div class="tier-desc">Người giới thiệu trực tiếp</div>
+    </div>
+    <div class="tier-arrow" style="color:var(--c5)">→</div>
+    <div class="tier-node">
+      <div class="tier-pct" style="color:var(--c5)">13%</div>
+      <div class="tier-name">Tier 2 — Upline</div>
+      <div class="tier-desc">Người giới thiệu cấp trên</div>
+    </div>
+    <div class="tier-arrow" style="color:var(--c6)">→</div>
+    <div class="tier-node">
+      <div class="tier-pct" style="color:var(--c6)">17%</div>
+      <div class="tier-name">Pool A/B/C</div>
+      <div class="tier-desc">Top KOC weekly ranking</div>
+    </div>
+    <div class="tier-arrow" style="color:var(--c7)">→</div>
+    <div class="tier-node">
+      <div class="tier-pct" style="color:var(--c7)">30%</div>
+      <div class="tier-name">Platform</div>
+      <div class="tier-desc">Vận hành & phát triển</div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ═══ BLOCKCHAIN DPP ═══ -->
+<section class="dpp-section container">
+  <div class="section-label"><span class="dot" style="background:var(--c6)"></span><span style="color:var(--c6)">Blockchain</span></div>
+  <h2 style="font-size:1.6rem;font-weight:800;margin-bottom:24px">Digital Product Passport</h2>
+  <div class="dpp-card">
+    <div class="dpp-header">
+      <div class="dpp-icon">✨</div>
+      <div>
+        <div style="font-size:1rem;font-weight:700">Serum Vitamin C 20%</div>
+        <div class="dpp-badges">
+          <span class="dpp-badge verified">✓ DPP Verified</span>
+          <span class="dpp-badge zkp">◎ ZKP Proof</span>
+          <span class="dpp-badge chain">⬡ Polygon</span>
+        </div>
+      </div>
+    </div>
+    <div class="dpp-fields">
+      <div class="dpp-field"><div class="dpp-field-label">Xuất xứ</div><div class="dpp-field-value">Hàn Quốc 🇰🇷 · Seoul</div></div>
+      <div class="dpp-field"><div class="dpp-field-label">Chứng nhận</div><div class="dpp-field-value">GMP · ISO 22000</div></div>
+      <div class="dpp-field"><div class="dpp-field-label">Thành phần</div><div class="dpp-field-value">Ascorbic Acid 20%</div></div>
+      <div class="dpp-field"><div class="dpp-field-label">Carbon footprint</div><div class="dpp-field-value">0.8 kg CO₂e</div></div>
+      <div class="dpp-field"><div class="dpp-field-label">HS Code</div><div class="dpp-field-value">3304.99.00</div></div>
+      <div class="dpp-field"><div class="dpp-field-label">Hạn sử dụng</div><div class="dpp-field-value">24 tháng</div></div>
+    </div>
+    <div style="font-size:.78rem;font-weight:700;margin-bottom:12px">Chuỗi cung ứng</div>
+    <div class="dpp-timeline">
+      <div class="dpp-event"><div class="dpp-event-dot" style="background:var(--c4)"></div><div><div class="dpp-event-time">15/01/2026</div><div class="dpp-event-title">Nguyên liệu thu mua</div><div class="dpp-event-detail">Supplier: KR-CHEM · Batch #A029</div></div></div>
+      <div class="dpp-event"><div class="dpp-event-dot" style="background:var(--c5)"></div><div><div class="dpp-event-time">20/01/2026</div><div class="dpp-event-title">Sản xuất hoàn tất</div><div class="dpp-event-detail">Factory: Seoul Plant #3 · QC 100%</div></div></div>
+      <div class="dpp-event"><div class="dpp-event-dot" style="background:var(--c6)"></div><div><div class="dpp-event-time">28/01/2026</div><div class="dpp-event-title">Xuất khẩu → Việt Nam</div><div class="dpp-event-detail">Container #KOCU3892741</div></div></div>
+      <div class="dpp-event"><div class="dpp-event-dot" style="background:var(--c7)"></div><div><div class="dpp-event-time">10/02/2026</div><div class="dpp-event-title">DPP Mint on-chain</div><div class="dpp-event-detail">Polygon · TX: 0x9aB3...4H5</div></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ═══ AUTH PAGES ═══ -->
+<section class="auth-section container">
+  <div class="section-label"><span class="dot" style="background:var(--c4)"></span><span style="color:var(--c4)">Xác thực</span></div>
+  <h2 style="font-size:1.6rem;font-weight:800;margin-bottom:24px">Đăng nhập & Đăng ký</h2>
+  <div class="auth-preview">
+    <!-- LOGIN -->
+    <div class="auth-card">
+      <h3>Chào mừng trở lại</h3>
+      <div class="sub">Đăng nhập vào WellKOC</div>
+      <div class="input-group"><label>Email</label><input class="input-field" placeholder="email@example.com"></div>
+      <div class="input-group"><label>Mật khẩu</label><input class="input-field" type="password" placeholder="••••••••"></div>
+      <button class="auth-btn">Đăng nhập</button>
+      <div class="auth-divider">HOẶC</div>
+      <div class="social-btns">
+        <button class="social-btn">🌐 Google</button>
+        <button class="social-btn">🦊 MetaMask</button>
+        <button class="social-btn">📱 OTP</button>
+      </div>
+    </div>
+    <!-- REGISTER -->
+    <div class="auth-card">
+      <h3>Tạo tài khoản</h3>
+      <div class="sub">Chọn vai trò của bạn</div>
+      <div class="role-selector">
+        <div class="role-opt"><div class="role-icon">🛒</div><div class="role-name">Buyer</div><div class="role-desc">Mua sắm</div></div>
+        <div class="role-opt active"><div class="role-icon">⭐</div><div class="role-name">KOC</div><div class="role-desc">Kiếm hoa hồng</div></div>
+        <div class="role-opt"><div class="role-icon">🏪</div><div class="role-name">Vendor</div><div class="role-desc">Bán hàng</div></div>
+      </div>
+      <div class="input-group"><label>Email</label><input class="input-field" placeholder="email@example.com"></div>
+      <div class="input-group"><label>Số điện thoại</label><input class="input-field" placeholder="0912 345 678"></div>
+      <div class="input-group"><label>Mật khẩu</label><input class="input-field" type="password" placeholder="Tối thiểu 8 ký tự"></div>
+      <button class="auth-btn">Tạo tài khoản miễn phí</button>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ═══ TECH STACK ═══ -->
+<section class="container" style="padding:80px 0">
+  <div class="section-label"><span class="dot" style="background:var(--c5)"></span><span style="color:var(--c5)">Công nghệ</span></div>
+  <h2 style="font-size:1.6rem;font-weight:800;margin-bottom:16px">Technology Stack</h2>
+  <div class="tech-badges">
+    <span class="tech-badge poly">⬡ Polygon Mainnet</span>
+    <span class="tech-badge sc">✓ Smart Contract Audit</span>
+    <span class="tech-badge ai">◎ Claude AI (Anthropic)</span>
+    <span class="tech-badge fast">⚡ FastAPI + Next.js</span>
+    <span class="tech-badge poly">🔐 ZK-Proof DPP</span>
+    <span class="tech-badge sc">📊 ClickHouse Analytics</span>
+    <span class="tech-badge ai">🤖 111 AI Agents</span>
+    <span class="tech-badge fast">🔴 WebRTC Live</span>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ═══ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="logo" style="font-size:1.3rem">Well<span style="background:var(--chakra);-webkit-background-clip:text;-webkit-text-fill-color:transparent">KOC</span></div>
+        <p>Nền tảng Social Commerce Web3 kết nối Vendor, KOC và Buyer với công nghệ AI và Blockchain.</p>
+        <div class="tech-badges" style="margin-top:12px">
+          <span class="tech-badge poly">⬡ Polygon</span>
+          <span class="tech-badge ai">◎ AI Powered</span>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Nền tảng</h4>
+        <a href="#">Marketplace</a>
+        <a href="#">KOC Academy</a>
+        <a href="#">AI Agents</a>
+        <a href="#">Blockchain DPP</a>
+        <a href="#">Live Commerce</a>
+      </div>
+      <div class="footer-col">
+        <h4>Đối tượng</h4>
+        <a href="#">Cho Buyer</a>
+        <a href="#">Cho KOC/KOL</a>
+        <a href="#">Cho Vendor</a>
+        <a href="#">Cho Admin</a>
+      </div>
+      <div class="footer-col">
+        <h4>Pháp lý</h4>
+        <a href="#">Chính sách bảo mật</a>
+        <a href="#">Điều khoản sử dụng</a>
+        <a href="#">Chính sách hoàn tiền</a>
+        <a href="#">Liên hệ hỗ trợ</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 WellKOC — Zeni Holdings JSC. All rights reserved.</span>
+      <div class="footer-socials">
+        <div class="footer-social">✈</div>
+        <div class="footer-social">𝕏</div>
+        <div class="footer-social">🎮</div>
+        <div class="footer-social">📺</div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</div><!-- .page-wrap -->
+
+</body>
+</html>

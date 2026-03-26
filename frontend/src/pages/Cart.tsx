@@ -1,0 +1,376 @@
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+
+interface CartItem {
+  id: number;
+  name: string;
+  price: number;
+  quantity: number;
+  dpp: boolean;
+  gradient: string;
+  xpPerUnit: number;
+}
+
+const formatVND = (price: number): string =>
+  new Intl.NumberFormat('vi-VN').format(price) + ' \u20AB';
+
+const initialCart: CartItem[] = [
+  { id: 1, name: 'Tra O Long Dai Loan Premium', price: 389000, quantity: 2, dpp: true, gradient: 'linear-gradient(135deg, #84cc16, #22c55e)', xpPerUnit: 10 },
+  { id: 2, name: 'Serum Vitamin C 20% Brightening', price: 315000, quantity: 1, dpp: true, gradient: 'linear-gradient(135deg, #fbbf24, #f59e0b)', xpPerUnit: 10 },
+  { id: 3, name: 'Mat Ong Rung Tay Nguyen 500ml', price: 285000, quantity: 1, dpp: true, gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', xpPerUnit: 10 },
+];
+
+export default function Cart() {
+  const [items, setItems] = useState<CartItem[]>(initialCart);
+  const [coupon, setCoupon] = useState('');
+  const [couponApplied, setCouponApplied] = useState(false);
+  const [couponDiscount, setCouponDiscount] = useState(0);
+
+  const updateQty = (id: number, delta: number) => {
+    setItems(prev => prev.map(item =>
+      item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
+    ));
+  };
+
+  const removeItem = (id: number) => {
+    setItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  const applyCoupon = () => {
+    if (coupon.toUpperCase() === 'WELLKOC50') {
+      setCouponApplied(true);
+      setCouponDiscount(50000);
+    } else if (coupon.toUpperCase() === 'WELCOME10') {
+      setCouponApplied(true);
+      setCouponDiscount(Math.round(subtotal * 0.1));
+    } else {
+      setCouponApplied(false);
+      setCouponDiscount(0);
+    }
+  };
+
+  const totalItems = items.reduce((s, i) => s + i.quantity, 0);
+  const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const shipping = subtotal >= 500000 ? 0 : 30000;
+  const totalXP = items.reduce((s, i) => s + i.xpPerUnit * i.quantity, 0);
+  const total = subtotal + shipping - couponDiscount;
+
+  // XP level calculation
+  const currentXP = 120; // mock current XP
+  const xpAfter = currentXP + totalXP;
+  const xpForNextLevel = 200;
+  const progressPercent = Math.min((xpAfter / xpForNextLevel) * 100, 100);
+
+  if (items.length === 0) {
+    return (
+      <div style={{
+        paddingTop: 'var(--topbar-height, 64px)', minHeight: '100vh',
+        background: 'var(--bg-0)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <div className="card" style={{ padding: 60, textAlign: 'center', maxWidth: 440 }}>
+          <div style={{ fontSize: '4rem', marginBottom: 16, opacity: 0.6 }}>🛒</div>
+          <h2 className="display-md" style={{ marginBottom: 8 }}>Gio hang trong</h2>
+          <p style={{ color: 'var(--text-3)', fontSize: '.88rem', marginBottom: 24, lineHeight: 1.6 }}>
+            Ban chua co san pham nao trong gio hang.
+            <br />
+            Kham pha Marketplace de tim san pham yeu thich!
+          </p>
+          <Link to="/marketplace" className="btn btn-primary btn-lg" style={{ textDecoration: 'none', padding: '12px 32px' }}>
+            Kham pha Marketplace
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ paddingTop: 'var(--topbar-height, 64px)', minHeight: '100vh', background: 'var(--bg-0)' }}>
+      <div className="container" style={{ paddingTop: 32, paddingBottom: 80 }}>
+        {/* Header */}
+        <div className="section-badge">🛒 GIO HANG</div>
+        <h1 className="display-md" style={{ marginBottom: 4 }}>Gio Hang Cua Ban</h1>
+        <p style={{ color: 'var(--text-3)', fontSize: '.85rem', marginBottom: 28 }}>
+          {totalItems} san pham trong gio hang
+        </p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 28 }}>
+          {/* Left: Cart Items */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Free shipping banner */}
+            {subtotal < 500000 && (
+              <div className="card" style={{
+                padding: '10px 16px', background: 'rgba(34,197,94,.08)',
+                border: '1px solid rgba(34,197,94,.2)',
+              }}>
+                <div style={{ fontSize: '.78rem', color: 'var(--c4-500, #22c55e)', fontWeight: 600 }}>
+                  🚚 Them {formatVND(500000 - subtotal)} de duoc mien phi van chuyen
+                </div>
+                <div className="progress-track" style={{ marginTop: 6, height: 4 }}>
+                  <div className="progress-bar" style={{
+                    width: `${(subtotal / 500000) * 100}%`,
+                    height: '100%', borderRadius: 2,
+                    background: 'var(--c4-500, #22c55e)',
+                    transition: 'width .3s',
+                  }} />
+                </div>
+              </div>
+            )}
+
+            {items.map(item => (
+              <div key={item.id} className="card" style={{ padding: '18px 20px' }}>
+                <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                  {/* Product Image Placeholder */}
+                  <div style={{
+                    width: 80, height: 80, borderRadius: 14, flexShrink: 0,
+                    background: item.gradient,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: '50%',
+                      background: 'rgba(255,255,255,.25)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '.6rem', color: '#fff', fontWeight: 700,
+                    }}>
+                      IMG
+                    </div>
+                  </div>
+
+                  {/* Product Details */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+                      {item.dpp && (
+                        <span className="badge badge-c4" style={{ fontSize: '.55rem' }}>DPP ✓</span>
+                      )}
+                    </div>
+                    <h3 style={{ fontWeight: 700, fontSize: '.88rem', marginBottom: 4 }}>{item.name}</h3>
+                    <div style={{ fontSize: '.75rem', color: 'var(--text-3)' }}>
+                      Don gia: {formatVND(item.price)}
+                    </div>
+
+                    {/* Quantity + Subtotal row */}
+                    <div style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      marginTop: 12,
+                    }}>
+                      {/* Quantity controls */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => updateQty(item.id, -1)}
+                          style={{
+                            width: 32, height: 32, padding: 0,
+                            fontSize: '1rem', borderRadius: 8,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          −
+                        </button>
+                        <span style={{
+                          fontFamily: 'var(--ff-display, system-ui)', fontWeight: 700,
+                          fontSize: '.92rem', minWidth: 36, textAlign: 'center',
+                        }}>
+                          {item.quantity}
+                        </span>
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => updateQty(item.id, 1)}
+                          style={{
+                            width: 32, height: 32, padding: 0,
+                            fontSize: '1rem', borderRadius: 8,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      {/* Subtotal */}
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{
+                          fontFamily: 'var(--ff-display, system-ui)', fontWeight: 800,
+                          fontSize: '1rem',
+                        }}>
+                          {formatVND(item.price * item.quantity)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Remove button */}
+                  <button
+                    onClick={() => removeItem(item.id)}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--text-4)', fontSize: '.88rem', padding: 4,
+                      fontFamily: 'var(--ff-body, system-ui)',
+                      opacity: 0.6, transition: 'opacity .2s',
+                    }}
+                    title="Xoa san pham"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {/* Continue shopping */}
+            <Link to="/marketplace" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              color: 'var(--c6-300, #06b6d4)', textDecoration: 'none',
+              fontSize: '.82rem', fontWeight: 600, marginTop: 4,
+            }}>
+              ← Tiep tuc mua sam
+            </Link>
+          </div>
+
+          {/* Right: Order Summary */}
+          <div style={{ position: 'sticky', top: 'calc(var(--topbar-height, 64px) + 32px)', alignSelf: 'start' }}>
+            <div className="card" style={{ padding: 24 }}>
+              <div style={{
+                fontSize: '.72rem', fontWeight: 700, color: 'var(--text-3)',
+                textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 20,
+              }}>
+                TOM TAT DON HANG
+              </div>
+
+              {/* Line items */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.82rem' }}>
+                  <span style={{ color: 'var(--text-3)' }}>Tam tinh ({totalItems} san pham)</span>
+                  <span style={{ fontWeight: 600 }}>{formatVND(subtotal)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.82rem' }}>
+                  <span style={{ color: 'var(--text-3)' }}>Phi van chuyen</span>
+                  <span style={{
+                    fontWeight: 600,
+                    color: shipping === 0 ? 'var(--c4-500, #22c55e)' : 'var(--text-1)',
+                  }}>
+                    {shipping === 0 ? 'Mien phi' : formatVND(shipping)}
+                  </span>
+                </div>
+                {couponApplied && couponDiscount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.82rem' }}>
+                    <span style={{ color: 'var(--c4-500, #22c55e)' }}>Ma giam gia</span>
+                    <span style={{ fontWeight: 600, color: 'var(--c4-500, #22c55e)' }}>
+                      -{formatVND(couponDiscount)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Coupon */}
+              <div style={{
+                display: 'flex', gap: 8, marginBottom: 16,
+              }}>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Ma giam gia"
+                  value={coupon}
+                  onChange={e => setCoupon(e.target.value)}
+                  style={{
+                    flex: 1, padding: '8px 12px', fontSize: '.78rem',
+                    borderRadius: 8,
+                  }}
+                />
+                <button
+                  className="btn btn-secondary"
+                  onClick={applyCoupon}
+                  style={{ padding: '8px 14px', fontSize: '.78rem', whiteSpace: 'nowrap' }}
+                >
+                  Ap dung
+                </button>
+              </div>
+              {couponApplied && (
+                <div style={{
+                  fontSize: '.72rem', color: 'var(--c4-500, #22c55e)',
+                  marginBottom: 12, marginTop: -8,
+                }}>
+                  ✓ Da ap dung ma giam gia thanh cong
+                </div>
+              )}
+
+              {/* Divider */}
+              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0 16px' }} />
+
+              {/* Total */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+                <span style={{ fontWeight: 700, fontSize: '.95rem' }}>Tong cong</span>
+                <span style={{
+                  fontFamily: 'var(--ff-display, system-ui)', fontWeight: 800,
+                  fontSize: '1.3rem', color: 'var(--c6-300, #06b6d4)',
+                }}>
+                  {formatVND(total)}
+                </span>
+              </div>
+
+              {/* XP Reward Preview */}
+              <div className="card" style={{
+                padding: '14px 16px', background: 'var(--bg-2)', marginBottom: 20,
+              }}>
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  marginBottom: 8,
+                }}>
+                  <span style={{ fontSize: '.78rem', color: 'var(--text-3)', fontWeight: 600 }}>
+                    🎮 XP nhan duoc
+                  </span>
+                  <span className="badge badge-gold" style={{ fontSize: '.72rem' }}>
+                    +{totalXP} XP
+                  </span>
+                </div>
+                <div style={{ fontSize: '.68rem', color: 'var(--text-4)', marginBottom: 8 }}>
+                  +{totalXP} XP ({totalItems} san pham x 10 XP)
+                </div>
+
+                {/* Level Progress Bar */}
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between',
+                  fontSize: '.62rem', color: 'var(--text-4)', marginBottom: 4,
+                }}>
+                  <span>Level 2</span>
+                  <span>{xpAfter}/{xpForNextLevel} XP</span>
+                </div>
+                <div className="progress-track" style={{ height: 6, borderRadius: 3 }}>
+                  <div className="progress-bar" style={{
+                    width: `${progressPercent}%`, height: '100%', borderRadius: 3,
+                    background: 'linear-gradient(90deg, var(--c6-500, #06b6d4), var(--c7-500, #6366f1))',
+                    transition: 'width .5s',
+                  }} />
+                </div>
+                {xpAfter >= xpForNextLevel && (
+                  <div style={{ fontSize: '.65rem', color: 'var(--c4-500, #22c55e)', marginTop: 4, fontWeight: 600 }}>
+                    🎉 Du XP de len Level 3!
+                  </div>
+                )}
+              </div>
+
+              {/* Checkout Button */}
+              <Link
+                to="/checkout"
+                className="btn btn-primary btn-lg"
+                style={{
+                  width: '100%', textDecoration: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '14px 24px', fontSize: '.92rem',
+                }}
+              >
+                Thanh toan
+              </Link>
+
+              {/* Trust badges */}
+              <div style={{
+                display: 'flex', gap: 6, justifyContent: 'center', marginTop: 14,
+                flexWrap: 'wrap',
+              }}>
+                <span className="badge badge-c4" style={{ fontSize: '.6rem' }}>DPP Verified</span>
+                <span className="badge badge-c5" style={{ fontSize: '.6rem' }}>Bao mat SSL</span>
+                <span className="badge badge-c7" style={{ fontSize: '.6rem' }}>Web3 Ready</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
