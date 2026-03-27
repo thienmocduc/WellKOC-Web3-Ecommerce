@@ -16,6 +16,7 @@ from app.api.v1.endpoints import (
     recommendations, ai_comments,
     publisher, fraud,
     events, compliance, analytics,
+    verification,
 )
 
 api_router = APIRouter()
@@ -23,6 +24,7 @@ api_router = APIRouter()
 # ── Auth & Users ─────────────────────────────────────────────
 api_router.include_router(auth.router)
 api_router.include_router(kyc.router)
+api_router.include_router(verification.router)
 
 # ── Commerce ─────────────────────────────────────────────────
 api_router.include_router(products.router)

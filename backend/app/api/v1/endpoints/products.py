@@ -64,8 +64,10 @@ async def search_products(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Hybrid search: pgvector semantic + Elasticsearch full-text.
-    Supports 5 languages for multilingual queries.
+    Full-text search using PostgreSQL tsvector with ts_rank relevance scoring.
+    Falls back to trigram similarity (pg_trgm) when full-text returns 0 results.
+    Supports Vietnamese + English + multilingual queries.
+    Results sorted by relevance score.
     """
     svc = ProductService(db)
     return await svc.hybrid_search(

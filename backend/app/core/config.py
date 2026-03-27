@@ -27,6 +27,7 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://localhost:3000",
         "https://wellkoc.com",
+        "https://www.wellkoc.com",
         "https://app.wellkoc.com",
     ]
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
@@ -96,6 +97,11 @@ class Settings(BaseSettings):
     TWILIO_AUTH_TOKEN: str = ""
     TWILIO_PHONE: str = ""
     FCM_SERVER_KEY: str = ""
+
+    # ── VNeID (Dinh danh dien tu) ───────────────
+    VNEID_CLIENT_ID: str = ""
+    VNEID_CLIENT_SECRET: str = ""
+    VNEID_REDIRECT_URI: str = "https://wellkoc.com/verify/vneid/callback"
 
     # ── Shipping ────────────────────────────────
     GHN_TOKEN: str = ""

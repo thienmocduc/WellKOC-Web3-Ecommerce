@@ -31,6 +31,17 @@ class Product(Base):
         Index("ix_products_status", "status"),
         Index("ix_products_category", "category"),
         Index("ix_products_dpp_verified", "dpp_verified"),
+        # GIN index for full-text search on name + description
+        Index(
+            "ix_products_fts",
+            func.to_tsvector(
+                "simple",
+                func.coalesce(text("name"), "") + " " + func.coalesce(text("description"), ""),
+            ),
+            postgresql_using="gin",
+        ),
+        # GIN trigram indexes for fuzzy search fallback (requires pg_trgm extension)
+        Index("ix_products_name_trgm", "name", postgresql_using="gin", postgresql_ops={"name": "gin_trgm_ops"}),
         {"schema": None},
     )
 

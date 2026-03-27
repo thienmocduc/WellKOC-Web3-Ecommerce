@@ -3,12 +3,12 @@ WellKOC — User Model
 Supports Buyer / KOC / Vendor / Admin roles
 """
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from typing import Optional
 
 from sqlalchemy import (
-    Boolean, DateTime, ForeignKey, Integer, Numeric,
+    Boolean, Date, DateTime, ForeignKey, Integer, Numeric,
     String, Text, func, UniqueConstraint, Index,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ENUM
@@ -38,8 +38,11 @@ class User(Base):
         UniqueConstraint("email", name="uq_users_email"),
         UniqueConstraint("phone", name="uq_users_phone"),
         UniqueConstraint("wallet_address", name="uq_users_wallet"),
+        UniqueConstraint("bank_account_number", name="uq_users_bank_account"),
+        UniqueConstraint("identity_number", name="uq_users_identity"),
         Index("ix_users_role", "role"),
         Index("ix_users_referral_code", "referral_code"),
+        Index("ix_users_verification_level", "verification_level"),
         {"schema": None},
     )
 
@@ -57,6 +60,26 @@ class User(Base):
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     phone_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    phone_verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    # ── Verification ──────────────────────────────────────────
+    bank_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    bank_account_number: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    bank_account_holder: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    bank_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    bank_verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    identity_number: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    identity_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    identity_verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    date_of_birth: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+
+    verification_level: Mapped[int] = mapped_column(Integer, default=0)
+    # 0=none, 1=email, 2=phone, 3=identity, 4=bank, 5=full
+
+    is_suspended: Mapped[bool] = mapped_column(Boolean, default=False)
+    suspended_reason: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     # ── Profile ──────────────────────────────────────────────
     role: Mapped[str] = mapped_column(String(20), default=UserRole.BUYER)

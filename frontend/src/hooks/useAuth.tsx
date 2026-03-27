@@ -2,6 +2,11 @@ import { useState, useEffect, useCallback, createContext, useContext, type React
 import { supabase } from '../lib/supabase';
 import type { User as SupaUser, Session } from '@supabase/supabase-js';
 
+/** Backend API base URL — reads from VITE_API_URL env var in production */
+export const API_BASE = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api/v1`
+  : '/api/v1';
+
 export type UserRole = 'user' | 'koc' | 'vendor' | 'admin';
 
 export interface User {
@@ -25,14 +30,30 @@ interface LoginResult {
   error?: string;
 }
 
+interface Enable2FAResult {
+  success: boolean;
+  error?: string;
+  qrCode?: string;
+  secret?: string;
+}
+
+interface Verify2FAResult {
+  success: boolean;
+  error?: string;
+}
+
 interface AuthContextValue {
   user: User | null;
   token: string | null;
   login: (user: User, token: string) => void;
   loginWithCredentials: (email: string, password: string, role?: UserRole) => LoginResult;
   loginAsync: (email: string, password: string, role?: UserRole) => Promise<LoginResult>;
+  loginWithGoogle: () => Promise<LoginResult>;
+  loginWithFacebook: () => Promise<LoginResult>;
   registerAsync: (data: RegisterData) => Promise<LoginResult>;
   logout: () => void;
+  enable2FA: () => Promise<Enable2FAResult>;
+  verify2FA: (factorId: string, code: string) => Promise<Verify2FAResult>;
   isAuthenticated: boolean;
   isAdmin: boolean;
   loading: boolean;
@@ -48,14 +69,6 @@ export interface RegisterData {
 }
 
 const STORAGE_KEY = 'wellkoc-auth';
-
-/* ── Admin fallback (always works without Supabase) ── */
-const ADMIN_ACCOUNTS: Record<string, { password: string; user: User }> = {
-  'admin@wellkoc.com': {
-    password: 'WellKOC@2026',
-    user: { id: 'admin-001', email: 'admin@wellkoc.com', name: 'WellKOC Admin', role: 'admin' },
-  },
-};
 
 /* ── Map Supabase user to our User type ── */
 function mapSupaUser(su: SupaUser, roleOverride?: UserRole): User {
@@ -127,15 +140,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthState({ user, token, refreshToken: null });
   }, []);
 
-  // Async login — Supabase Auth
+  // Async login — Supabase Auth only (no mock fallback)
   const loginAsync = useCallback(async (email: string, password: string, role: UserRole = 'user'): Promise<LoginResult> => {
-    // Admin shortcut
-    const adminAccount = ADMIN_ACCOUNTS[email];
-    if (adminAccount && adminAccount.password === password) {
-      setAuthState({ user: adminAccount.user, token: `admin-token-${Date.now()}`, refreshToken: null });
-      return { success: true };
-    }
-
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -153,10 +159,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (data.user && data.session) {
         const user = mapSupaUser(data.user, role);
-        // Update role in user_metadata if needed
-        if (role && role !== 'user') {
-          await supabase.auth.updateUser({ data: { role } });
+
+        // For admin role requests, verify from user_metadata
+        if (role === 'admin' && user.role !== 'admin') {
+          await supabase.auth.signOut();
+          setLoading(false);
+          return { success: false, error: 'Tài khoản không có quyền Admin' };
         }
+
         setAuthState({
           user,
           token: data.session.access_token,
@@ -173,21 +183,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Sync loginWithCredentials — backward compat
+  // Sync loginWithCredentials — backward compat (fires async login in background)
   const loginWithCredentials = useCallback(
     (email: string, password: string, role: UserRole = 'user'): LoginResult => {
-      const adminAccount = ADMIN_ACCOUNTS[email];
-      if (adminAccount && adminAccount.password === password) {
-        setAuthState({ user: adminAccount.user, token: `admin-token-${Date.now()}`, refreshToken: null });
-        return { success: true };
-      }
-      // Fire async in background
+      // Fire async login in background
       loginAsync(email, password, role);
       if (email && password.length >= 6) return { success: true };
       return { success: false, error: 'Email hoặc mật khẩu không đúng' };
     },
     [loginAsync],
   );
+
+  // Google OAuth login
+  const loginWithGoogle = useCallback(async (): Promise<LoginResult> => {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/login`,
+      },
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  }, []);
+
+  // Facebook OAuth login
+  const loginWithFacebook = useCallback(async (): Promise<LoginResult> => {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'facebook',
+      options: {
+        redirectTo: `${window.location.origin}/login`,
+      },
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  }, []);
 
   // Register — Supabase Auth
   const registerAsync = useCallback(async (data: RegisterData): Promise<LoginResult> => {
@@ -243,16 +272,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Enable 2FA (TOTP)
+  const enable2FA = useCallback(async (): Promise<Enable2FAResult> => {
+    const { data, error } = await supabase.auth.mfa.enroll({
+      factorType: 'totp',
+      friendlyName: 'WellKOC Authenticator',
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, qrCode: data.totp.qr_code, secret: data.totp.secret };
+  }, []);
+
+  // Verify 2FA
+  const verify2FA = useCallback(async (factorId: string, code: string): Promise<Verify2FAResult> => {
+    const challenge = await supabase.auth.mfa.challenge({ factorId });
+    if (challenge.error) return { success: false, error: challenge.error.message };
+
+    const verify = await supabase.auth.mfa.verify({
+      factorId,
+      challengeId: challenge.data.id,
+      code,
+    });
+    if (verify.error) return { success: false, error: verify.error.message };
+    return { success: true };
+  }, []);
+
   // Logout
   const logout = useCallback(async () => {
-    if (authState.token?.startsWith('admin-')) {
-      // Admin mock — just clear state
-      setAuthState({ user: null, token: null, refreshToken: null });
-      return;
-    }
     await supabase.auth.signOut();
     setAuthState({ user: null, token: null, refreshToken: null });
-  }, [authState.token]);
+  }, []);
 
   const isAuthenticated = authState.user !== null && authState.token !== null;
   const isAdmin = authState.user?.role === 'admin';
@@ -264,8 +312,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       loginWithCredentials,
       loginAsync,
+      loginWithGoogle,
+      loginWithFacebook,
       registerAsync,
       logout,
+      enable2FA,
+      verify2FA,
       isAuthenticated,
       isAdmin,
       loading,
@@ -284,8 +336,12 @@ export function useAuth(): AuthContextValue {
       login: () => {},
       loginWithCredentials: () => ({ success: false, error: 'No auth provider' }),
       loginAsync: async () => ({ success: false, error: 'No auth provider' }),
+      loginWithGoogle: async () => ({ success: false, error: 'No auth provider' }),
+      loginWithFacebook: async () => ({ success: false, error: 'No auth provider' }),
       registerAsync: async () => ({ success: false, error: 'No auth provider' }),
       logout: () => {},
+      enable2FA: async () => ({ success: false, error: 'No auth provider' }),
+      verify2FA: async () => ({ success: false, error: 'No auth provider' }),
       isAuthenticated: false,
       isAdmin: false,
       loading: false,
