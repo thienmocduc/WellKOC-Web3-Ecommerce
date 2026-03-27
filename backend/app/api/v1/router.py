@@ -12,6 +12,10 @@ from app.api.v1.endpoints import (
     group_buy, live,
     social, membership,
     referral, share_links,
+    pools, flash_sale,
+    recommendations, ai_comments,
+    publisher, fraud,
+    events, compliance, analytics,
 )
 
 api_router = APIRouter()
@@ -41,6 +45,10 @@ api_router.include_router(admin.router)
 
 # ── AI & Intelligence ────────────────────────────────────────
 api_router.include_router(ai_agents.router)
+api_router.include_router(ai_comments.router)
+
+# ── Recommendations ──────────────────────────────────────────
+api_router.include_router(recommendations.router)
 
 # ── Social Commerce ─────────────────────────────────────────
 api_router.include_router(group_buy.router)
@@ -56,6 +64,27 @@ api_router.include_router(membership.router)
 
 # ── Gamification ────────────────────────────────────────────
 api_router.include_router(gamification.router)
+
+# ── Pool Rankings ───────────────────────────────────────────
+api_router.include_router(pools.router)
+
+# ── Flash Sale ─────────────────────────────────────────────
+api_router.include_router(flash_sale.router)
+
+# ── Multi-Platform Publisher ──────────────────────────────────
+api_router.include_router(publisher.router)
+
+# ── Fraud Detection ──────────────────────────────────────────
+api_router.include_router(fraud.router)
+
+# ── Social Shopping Events ──────────────────────────────────
+api_router.include_router(events.router)
+
+# ── Tax & Compliance ────────────────────────────────────────
+api_router.include_router(compliance.router)
+
+# ── Vendor BI Analytics ─────────────────────────────────────
+api_router.include_router(analytics.router)
 
 # ── Real-time (WebSocket) ────────────────────────────────────
 api_router.include_router(websocket.router)

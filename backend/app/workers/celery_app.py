@@ -21,6 +21,7 @@ celery_app = Celery(
         "app.workers.gamification_worker",
         "app.workers.inventory_worker",
         "app.workers.report_worker",
+        "app.workers.publisher_worker",
     ],
 )
 
@@ -44,6 +45,7 @@ celery_app.conf.update(
         "app.workers.pool_ranking_worker.*": {"queue": "analytics"},
         "app.workers.inventory_worker.*":  {"queue": "default"},
         "app.workers.report_worker.*":     {"queue": "default"},
+        "app.workers.publisher_worker.*":  {"queue": "publisher"},
     },
 
     # Retry settings

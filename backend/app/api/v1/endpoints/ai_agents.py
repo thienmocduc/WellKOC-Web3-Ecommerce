@@ -1,23 +1,27 @@
 """
 WellKOC — 111 AI Agents Endpoint
-Agent A01: Caption, A03: Hashtag, A07: Calendar, A09: Publisher
+Agent A01: Caption, A03: Hashtag, A07: Calendar, A09: Publisher, A20: Coach
 All powered by Claude claude-sonnet-4-6 API
 """
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+import json
+from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
-from fastapi.responses import StreamingResponse
-import anthropic
 
-from sqlalchemy import select
+import anthropic
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+from sqlalchemy import select, func, and_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.api.v1.deps import get_current_user
-from app.models.user import User
+from app.api.v1.deps import get_current_user, require_role, CurrentUser
+from app.models.user import User, UserRole
 from app.models.product import Product
+from app.models.order import Order
+from app.models.coaching_report import CoachingReport
 
 router = APIRouter(prefix="/ai", tags=["AI Agents"])
 
@@ -401,41 +405,405 @@ async def generate_affiliate_link(body: LinkRequest, current_user: User = Depend
     }
 
 
-# ── Agent A20: KOC Performance Coach ─────────────────────────
-@router.post("/coaching/{koc_id}")
-async def koc_coaching_report(koc_id: str, current_user: User = Depends(get_current_user)):
-    """Agent A20: Weekly AI-powered performance coaching"""
-    if not client:
-        raise HTTPException(503, "AI service unavailable")
+# ── Coaching Schemas ──────────────────────────────────────────
 
-    # In production: fetch real KOC metrics from DB
-    mock_metrics = {
-        "total_orders": 284,
-        "gmv_vnd": 28400000,
-        "cvr": 5.9,
-        "top_product": "Serum Vitamin C 20%",
-        "posting_frequency": "3x/week",
-        "best_day": "Friday 8PM",
+class CoachingReportOut(BaseModel):
+    id: UUID
+    koc_id: UUID
+    week_number: int
+    year: int
+    metrics_snapshot: dict
+    recommendations: dict
+    action_items: list
+    peer_rank: Optional[int] = None
+    improvement_score: float = 0
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CoachingReportListResponse(BaseModel):
+    items: list[CoachingReportOut]
+    total: int
+
+
+class BatchCoachingRequest(BaseModel):
+    pass  # Admin triggers for all active KOCs
+
+
+class BatchCoachingResponse(BaseModel):
+    triggered: int
+    koc_ids: list[str]
+
+
+# ── Coaching Helpers ─────────────────────────────────────────
+
+async def _fetch_koc_metrics(
+    koc_id: UUID, db: AsyncSession, weeks_back: int = 1
+) -> dict:
+    """Fetch real KOC metrics from orders for the given period."""
+    now = datetime.utcnow()
+    period_start = now - timedelta(weeks=weeks_back)
+
+    # Current period orders where koc is T1
+    orders_q = (
+        select(
+            func.count(Order.id).label("total_orders"),
+            func.coalesce(func.sum(Order.total), 0).label("gmv"),
+            func.coalesce(func.avg(Order.total), 0).label("avg_order_value"),
+        )
+        .where(
+            Order.koc_t1_id == koc_id,
+            Order.created_at >= period_start,
+            Order.status.notin_(["cancelled", "refunded"]),
+        )
+    )
+    result = (await db.execute(orders_q)).one()
+
+    # View count (from products the KOC promotes via vendor_id)
+    view_q = (
+        select(func.coalesce(func.sum(Product.view_count), 0))
+        .where(Product.vendor_id == koc_id)
+    )
+    total_views = (await db.execute(view_q)).scalar() or 0
+
+    total_orders = result.total_orders or 0
+    gmv = float(result.gmv or 0)
+    avg_order = float(result.avg_order_value or 0)
+    cvr = round((total_orders / max(total_views, 1)) * 100, 2)
+
+    # Top product
+    top_product_q = (
+        select(Product.name, Product.order_count)
+        .where(Product.vendor_id == koc_id, Product.status == "active")
+        .order_by(desc(Product.order_count))
+        .limit(1)
+    )
+    top_row = (await db.execute(top_product_q)).first()
+    top_product = top_row[0] if top_row else "N/A"
+
+    return {
+        "total_orders": total_orders,
+        "gmv_vnd": gmv,
+        "avg_order_value": avg_order,
+        "cvr": cvr,
+        "total_views": total_views,
+        "top_product": top_product,
     }
 
+
+async def _fetch_4week_avg(koc_id: UUID, db: AsyncSession) -> dict:
+    """Fetch 4-week average metrics for comparison."""
+    return await _fetch_koc_metrics(koc_id, db, weeks_back=4)
+
+
+async def _fetch_peer_benchmark(db: AsyncSession) -> dict:
+    """Anonymized top 10% KOC performance benchmark."""
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+
+    # Get top KOCs by order count
+    peer_q = (
+        select(
+            func.coalesce(func.avg(func.count(Order.id)), 0).label("avg_orders"),
+        )
+        .where(
+            Order.koc_t1_id.isnot(None),
+            Order.created_at >= thirty_days_ago,
+            Order.status.notin_(["cancelled", "refunded"]),
+        )
+        .group_by(Order.koc_t1_id)
+        .order_by(desc(func.count(Order.id)))
+    )
+
+    # Simplified: get top KOC stats
+    top_koc_q = (
+        select(
+            Order.koc_t1_id,
+            func.count(Order.id).label("order_count"),
+            func.sum(Order.total).label("gmv"),
+        )
+        .where(
+            Order.koc_t1_id.isnot(None),
+            Order.created_at >= thirty_days_ago,
+            Order.status.notin_(["cancelled", "refunded"]),
+        )
+        .group_by(Order.koc_t1_id)
+        .order_by(desc(func.count(Order.id)))
+        .limit(10)
+    )
+    top_rows = (await db.execute(top_koc_q)).all()
+
+    if not top_rows:
+        return {"top10_avg_orders": 0, "top10_avg_gmv": 0, "total_kocs_ranked": 0}
+
+    avg_orders = sum(r.order_count for r in top_rows) / len(top_rows)
+    avg_gmv = sum(float(r.gmv or 0) for r in top_rows) / len(top_rows)
+
+    return {
+        "top10_avg_orders": round(avg_orders, 1),
+        "top10_avg_gmv": round(avg_gmv, 0),
+        "total_kocs_ranked": len(top_rows),
+    }
+
+
+async def _get_trending_in_niche(koc_id: UUID, db: AsyncSession) -> list[str]:
+    """Get trending products in the KOC's niche (based on their product categories)."""
+    # Find KOC's main categories
+    cat_q = (
+        select(Product.category)
+        .where(Product.vendor_id == koc_id)
+        .group_by(Product.category)
+        .order_by(desc(func.count(Product.id)))
+        .limit(3)
+    )
+    categories = (await db.execute(cat_q)).scalars().all()
+
+    if not categories:
+        categories = []
+
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    trending_q = (
+        select(Product.name, Product.order_count)
+        .where(
+            Product.status == "active",
+            Product.updated_at >= seven_days_ago,
+            Product.category.in_(categories) if categories else True,
+        )
+        .order_by(desc(Product.order_count))
+        .limit(5)
+    )
+    rows = (await db.execute(trending_q)).all()
+    return [f"{r[0]} ({r[1]} orders)" for r in rows]
+
+
+# ── Agent A20: KOC Performance Coach (Enhanced) ──────────────
+
+@router.post("/coaching/{koc_id}")
+async def koc_coaching_report(
+    koc_id: UUID,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Agent A20: Enhanced weekly AI-powered performance coaching.
+    Includes weekly comparison, peer benchmarking, action items with ROI,
+    and trending product suggestions for the KOC's niche.
+    """
+    if not client:
+        raise HTTPException(503, "AI service unavailable - missing API key")
+
+    # Verify KOC exists
+    koc_result = await db.execute(select(User).where(User.id == koc_id))
+    koc = koc_result.scalar_one_or_none()
+    if not koc:
+        raise HTTPException(404, "KOC không tồn tại")
+
+    # Fetch real metrics
+    current_metrics = await _fetch_koc_metrics(koc_id, db, weeks_back=1)
+    four_week_avg = await _fetch_4week_avg(koc_id, db)
+    peer_benchmark = await _fetch_peer_benchmark(db)
+    trending_products = await _get_trending_in_niche(koc_id, db)
+
+    # Calculate improvement score
+    prev_orders = four_week_avg.get("total_orders", 0) / 4 if four_week_avg.get("total_orders") else 0
+    curr_orders = current_metrics.get("total_orders", 0)
+    improvement = round(
+        ((curr_orders - prev_orders) / max(prev_orders, 1)) * 100, 2
+    )
+
     prompt = f"""{PLATFORM_CONTEXT}
-You are Agent A20 — KOC Performance Coach.
+You are Agent A20 — KOC Performance Coach (Enhanced).
 
-Weekly report for KOC (metrics this week):
-{mock_metrics}
+Generate a comprehensive coaching report in Vietnamese. Return ONLY valid JSON (no markdown).
 
-Generate a personalized coaching report in Vietnamese:
-1. Performance summary (2-3 sentences)
-2. Top 3 actionable recommendations
-3. Best product to promote next week (with reasoning)
-4. Optimal posting schedule
-5. One growth strategy based on their data
+KOC: {koc.display_name or koc.full_name or 'KOC'}
 
-Be specific, actionable, and encouraging. Max 300 words."""
+This Week's Metrics:
+{json.dumps(current_metrics, ensure_ascii=False)}
+
+4-Week Average (for comparison):
+{json.dumps(four_week_avg, ensure_ascii=False)}
+
+Peer Benchmark (top 10% KOCs):
+{json.dumps(peer_benchmark, ensure_ascii=False)}
+
+Trending Products in KOC's Niche:
+{json.dumps(trending_products, ensure_ascii=False)}
+
+Improvement vs 4-week avg: {improvement}%
+
+Return this exact JSON structure:
+{{
+  "summary": "2-3 sentence performance summary in Vietnamese",
+  "weekly_comparison": {{
+    "current_vs_avg": "comparison analysis",
+    "trend": "improving|stable|declining"
+  }},
+  "peer_benchmarking": {{
+    "rank_analysis": "how KOC compares to top 10%",
+    "gap_to_close": "what to focus on to reach top tier"
+  }},
+  "top_recommendations": [
+    {{"action": "specific action", "expected_roi": "expected result", "priority": "high|medium|low"}}
+  ],
+  "action_items": [
+    {{"action": "concrete next step", "expected_roi": "measurable outcome", "deadline": "timeframe"}}
+  ],
+  "trending_suggestions": ["product suggestion with reasoning"],
+  "growth_strategy": "one key growth strategy"
+}}
+"""
 
     resp = client.messages.create(
         model=settings.ANTHROPIC_MODEL,
-        max_tokens=600,
+        max_tokens=1500,
         messages=[{"role": "user", "content": prompt}],
     )
-    return {"report": resp.content[0].text, "metrics": mock_metrics}
+
+    raw_text = resp.content[0].text.strip()
+    if raw_text.startswith("```"):
+        raw_text = raw_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+
+    try:
+        ai_report = json.loads(raw_text)
+    except json.JSONDecodeError:
+        ai_report = {"summary": raw_text, "top_recommendations": [], "action_items": []}
+
+    # Determine week/year
+    now = datetime.utcnow()
+    iso_cal = now.isocalendar()
+    week_number = iso_cal[1]
+    year = iso_cal[0]
+
+    # Compute peer rank
+    peer_rank = None
+    if peer_benchmark.get("total_kocs_ranked"):
+        # Simple ranking: how does this KOC compare
+        if curr_orders >= peer_benchmark.get("top10_avg_orders", 0):
+            peer_rank = 1
+        else:
+            peer_rank = min(peer_benchmark["total_kocs_ranked"], 10)
+
+    # Save report to DB
+    report = CoachingReport(
+        koc_id=koc_id,
+        week_number=week_number,
+        year=year,
+        metrics_snapshot=current_metrics,
+        recommendations=ai_report,
+        action_items=ai_report.get("action_items", []),
+        peer_rank=peer_rank,
+        improvement_score=improvement,
+    )
+    db.add(report)
+    await db.flush()
+
+    return {
+        "report_id": str(report.id),
+        "report": ai_report,
+        "metrics": {
+            "current_week": current_metrics,
+            "four_week_avg": four_week_avg,
+            "peer_benchmark": peer_benchmark,
+            "improvement_pct": improvement,
+        },
+        "trending_products": trending_products,
+    }
+
+
+# ── GET /ai/coaching/{koc_id}/history ─────────────────────────
+
+@router.get("/coaching/{koc_id}/history", response_model=CoachingReportListResponse)
+async def get_coaching_history(
+    koc_id: UUID,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+    limit: int = Query(10, ge=1, le=50),
+):
+    """Past coaching reports for a KOC."""
+    # KOCs can only see their own; admins see all
+    if (
+        str(current_user.id) != str(koc_id)
+        and current_user.role not in (UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    ):
+        raise HTTPException(403, "Không có quyền xem báo cáo của KOC khác")
+
+    count_q = select(func.count(CoachingReport.id)).where(CoachingReport.koc_id == koc_id)
+    total = (await db.execute(count_q)).scalar() or 0
+
+    q = (
+        select(CoachingReport)
+        .where(CoachingReport.koc_id == koc_id)
+        .order_by(desc(CoachingReport.created_at))
+        .limit(limit)
+    )
+    rows = (await db.execute(q)).scalars().all()
+
+    return CoachingReportListResponse(items=rows, total=total)
+
+
+# ── POST /ai/coaching/batch ───────────────────────────────────
+
+@router.post("/coaching/batch", response_model=BatchCoachingResponse)
+async def batch_coaching(
+    current_user: User = Depends(require_role([UserRole.ADMIN])),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin triggers batch coaching for all active KOCs.
+    Generates coaching reports for each active KOC.
+    """
+    # Find all active KOCs
+    koc_q = (
+        select(User.id)
+        .where(User.role == UserRole.KOC, User.is_active == True)
+    )
+    koc_ids = (await db.execute(koc_q)).scalars().all()
+
+    if not koc_ids:
+        return BatchCoachingResponse(triggered=0, koc_ids=[])
+
+    now = datetime.utcnow()
+    iso_cal = now.isocalendar()
+    week_number = iso_cal[1]
+    year = iso_cal[0]
+
+    triggered_ids: list[str] = []
+    for kid in koc_ids:
+        # Check if report already exists for this week
+        existing = await db.execute(
+            select(CoachingReport.id).where(
+                CoachingReport.koc_id == kid,
+                CoachingReport.week_number == week_number,
+                CoachingReport.year == year,
+            )
+        )
+        if existing.scalar_one_or_none():
+            continue  # Skip already-generated
+
+        # Fetch metrics and create report (without AI call for batch efficiency)
+        metrics = await _fetch_koc_metrics(kid, db, weeks_back=1)
+        four_week = await _fetch_4week_avg(kid, db)
+        prev_orders = four_week.get("total_orders", 0) / 4 if four_week.get("total_orders") else 0
+        curr_orders = metrics.get("total_orders", 0)
+        improvement = round(
+            ((curr_orders - prev_orders) / max(prev_orders, 1)) * 100, 2
+        )
+
+        report = CoachingReport(
+            koc_id=kid,
+            week_number=week_number,
+            year=year,
+            metrics_snapshot=metrics,
+            recommendations={"summary": "Batch-generated — run individual coaching for full AI report"},
+            action_items=[],
+            improvement_score=improvement,
+        )
+        db.add(report)
+        triggered_ids.append(str(kid))
+
+    await db.flush()
+
+    return BatchCoachingResponse(
+        triggered=len(triggered_ids),
+        koc_ids=triggered_ids,
+    )

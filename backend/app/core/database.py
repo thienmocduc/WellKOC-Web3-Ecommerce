@@ -45,6 +45,10 @@ async def init_db() -> None:
         user, product, order, commission, cart, review,
         koc_profile, vendor, shipment, dpp_nft, membership,
         return_request, group_buy, live_stream, social,
+        pool_ranking, flash_sale,
+        recommendation, social_comment, coaching_report,
+        publish_job, fraud,
+        shopping_event, compliance, analytics,
     )
     async with engine.begin() as conn:
         # Only create tables in dev; use Alembic in production

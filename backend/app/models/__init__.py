@@ -9,3 +9,13 @@ from app.models.gamification import (
     UserXP, XPTransaction, Achievement, UserAchievement,
     Mission, UserMission, DailyCheckin, LeaderboardEntry, KOCBattle,
 )
+from app.models.pool_ranking import PoolRanking, PoolConfig, PoolDistribution
+from app.models.flash_sale import FlashSale, FlashSalePurchase
+from app.models.recommendation import UserBehaviorEvent, RecommendationCache
+from app.models.social_comment import SocialComment
+from app.models.coaching_report import CoachingReport
+from app.models.publish_job import PublishJob, PlatformConnection
+from app.models.fraud import FraudScore, FraudAlert
+from app.models.shopping_event import ShoppingEvent, EventParticipant, EventLeaderboardEntry
+from app.models.compliance import ComplianceReport, ATTPCertification
+from app.models.analytics import AnalyticsEvent, AnalyticsSnapshot
