@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@hooks/useAuth';
+import { useAuth, API_BASE } from '@hooks/useAuth';
 
 /* ── Helpers ─────────────────────────────────────── */
 const formatVND = (n: number) => n.toLocaleString('vi-VN') + '₫';
@@ -524,9 +524,81 @@ export default function KOC() {
     if (!openGroups[groupKey]) setOpenGroups(prev => ({ ...prev, [groupKey]: true }));
   };
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const userName = user?.name || 'KOC';
   const userEmail = user?.email || '';
+  const userRefCode = user?.referral_code || 'MH123';
+
+  /* ── Server connection status ─── */
+  const [serverNotice, setServerNotice] = useState('');
+
+  /* ── Share link from API ─── */
+  const [generatedShareLink, setGeneratedShareLink] = useState('');
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+
+  /* ── Affiliate links from API ─── */
+  const [affLinksLoaded, setAffLinksLoaded] = useState(false);
+
+  // Fetch real affiliate links on mount
+  useEffect(() => {
+    const fetchAffLinks = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/share/affiliate-links`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error('API error');
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setAffLinks(data);
+          setAffLinksLoaded(true);
+          setServerNotice('');
+        }
+      } catch {
+        setServerNotice('Đang kết nối server...');
+        // Keep mock data as fallback
+      }
+    };
+    fetchAffLinks();
+  }, [token]);
+
+  // Generate share link via API
+  const generateShareLink = async (platform: string) => {
+    const product = shareProducts.find(p => p.name === selectedShareProduct);
+    if (!product) return null;
+
+    setIsGeneratingLink(true);
+    try {
+      const res = await fetch(`${API_BASE}/share/generate-link`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          product_id: product.id,
+          platform,
+          campaign: 'koc_share',
+        }),
+      });
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      const link = data.affiliate_link || data.link;
+      if (link) {
+        setGeneratedShareLink(link);
+        setServerNotice('');
+        return link;
+      }
+      throw new Error('No link returned');
+    } catch {
+      // Fallback: generate client-side link
+      const fallback = `https://wellkoc.com/p/${product.id}?ref=${userRefCode}&utm_source=${platform}`;
+      setGeneratedShareLink(fallback);
+      setServerNotice('Đang kết nối server...');
+      return fallback;
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -1293,6 +1365,13 @@ export default function KOC() {
         return (
           <>
             <h2 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: 20 }}>Affiliate & CRM</h2>
+
+            {serverNotice && (
+              <div style={{ padding: '8px 14px', borderRadius: 8, marginBottom: 16, background: 'rgba(251,191,36,.1)', border: '1px solid rgba(251,191,36,.25)', color: '#b45309', fontSize: '.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ animation: 'pulse 1.5s infinite' }}>●</span> {serverNotice}
+              </div>
+            )}
+
             <div className="grid-3" style={{ gap: 16, marginBottom: 24 }}>
               {[
                 { label: 'Đối tác F1 (trực tiếp)', value: partnerStats.f1, color: 'var(--c4-500)' },
@@ -1310,11 +1389,30 @@ export default function KOC() {
               <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
                 <div className="flex" style={{ justifyContent: 'space-between' }}>
                   <span style={{ fontWeight: 700, fontSize: '.88rem' }}>Link Affiliate</span>
-                  <button className="btn btn-primary btn-sm" onClick={() => {
-                    const id = Date.now();
-                    const newLink = { id, product: 'Sản phẩm mới', link: `https://wellkoc.vn/r/mh-new-${id.toString().slice(-4)}`, clicks: 0, conversions: 0, revenue: '0₫' };
-                    setAffLinks(prev => [...prev, newLink]);
-                    showToast('Đã tạo link affiliate mới');
+                  <button className="btn btn-primary btn-sm" onClick={async () => {
+                    try {
+                      const res = await fetch(`${API_BASE}/share/generate-link`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                        },
+                        body: JSON.stringify({ product_id: Date.now(), platform: 'direct', campaign: 'affiliate' }),
+                      });
+                      if (!res.ok) throw new Error('API error');
+                      const data = await res.json();
+                      const newLink = { id: Date.now(), product: data.product_name || 'Sản phẩm mới', link: data.affiliate_link || data.link, clicks: 0, conversions: 0, revenue: '0₫' };
+                      setAffLinks(prev => [...prev, newLink]);
+                      showToast('Đã tạo link affiliate mới');
+                      setServerNotice('');
+                    } catch {
+                      // Fallback: generate mock link
+                      const id = Date.now();
+                      const newLink = { id, product: 'Sản phẩm mới', link: `https://wellkoc.com/p/${id.toString().slice(-4)}?ref=${userRefCode}`, clicks: 0, conversions: 0, revenue: '0₫' };
+                      setAffLinks(prev => [...prev, newLink]);
+                      setServerNotice('Đang kết nối server...');
+                      showToast('Đã tạo link affiliate mới (offline)');
+                    }
                   }}>+ Tạo link mới</button>
                 </div>
               </div>
@@ -1393,11 +1491,17 @@ export default function KOC() {
 
       /* ══════ CHIA SẺ ĐA NỀN TẢNG ══════ */
       case 'share': {
-        const refCode = 'MH123';
-        const shareLink = `https://wk.co/mh-${selectedShareProduct.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 12)}?ref=${refCode}`;
+        const refCode = userRefCode;
+        const shareLink = generatedShareLink || `https://wellkoc.com/p/${shareProducts.find(p => p.name === selectedShareProduct)?.id || 1}?ref=${refCode}&utm_source=direct`;
         return (
           <>
             <h2 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: 20 }}>Chia Sẻ Đa Nền Tảng</h2>
+
+            {serverNotice && (
+              <div style={{ padding: '8px 14px', borderRadius: 8, marginBottom: 16, background: 'rgba(251,191,36,.1)', border: '1px solid rgba(251,191,36,.25)', color: '#b45309', fontSize: '.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ animation: 'pulse 1.5s infinite' }}>●</span> {serverNotice}
+              </div>
+            )}
 
             {/* ── 1. Social Links Management ── */}
             <div className="card" style={{ padding: 20, marginBottom: 24 }}>
@@ -1450,7 +1554,10 @@ export default function KOC() {
                 <div style={{ fontSize: '.72rem', color: 'var(--text-3)', marginBottom: 8 }}>Chia sẻ qua</div>
                 <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
                   {socialPlatforms.map((p, i) => (
-                    <button key={i} className="btn btn-sm" style={{ background: p.color, color: '#fff', border: 'none', fontWeight: 600, fontSize: '.75rem', padding: '8px 14px', borderRadius: 8 }} onClick={() => { copyText(`${shareLink}&utm_source=${p.name.toLowerCase()}`); showToast(`Link đã được sao chép cho ${p.name} (UTM: ${p.name.toLowerCase()})`); }}>
+                    <button key={i} className="btn btn-sm" disabled={isGeneratingLink} style={{ background: p.color, color: '#fff', border: 'none', fontWeight: 600, fontSize: '.75rem', padding: '8px 14px', borderRadius: 8, opacity: isGeneratingLink ? 0.6 : 1 }} onClick={async () => {
+                      const link = await generateShareLink(p.name.toLowerCase());
+                      if (link) { copyText(link); showToast(`Link đã được sao chép cho ${p.name}`); }
+                    }}>
                       {p.icon} {p.name}
                     </button>
                   ))}

@@ -22,8 +22,14 @@ ALGORITHM = "HS256"
 
 
 def _gen_referral_code(length: int = 8) -> str:
+    """Legacy random code generator — kept as fallback."""
     chars = string.ascii_uppercase + string.digits
     return ''.join(secrets.choice(chars) for _ in range(length))
+
+
+def _gen_wk_referral_code(user_id: str) -> str:
+    """Generate referral code as WK-{first 6 chars of user id uppercase}."""
+    return f"WK-{str(user_id).replace('-', '')[:6].upper()}"
 
 
 class AuthService:
@@ -51,27 +57,38 @@ class AuthService:
             if existing:
                 raise ValueError("Số điện thoại đã được sử dụng")
 
-        # Resolve referrer
+        # Resolve referrer — look up user who owns this referral_code
         referred_by_id = None
         if referral_code:
             referrer = await self._find_by_referral(referral_code)
             if referrer:
                 referred_by_id = referrer.id
+            # Silently ignore invalid referral codes (don't block registration)
 
-        # Create user
+        # Create user with a temporary referral_code (will be replaced after flush)
         user = User(
             email=email,
             phone=phone,
             hashed_password=pwd_context.hash(password),
             role=role,
             language=language,
-            referral_code=_gen_referral_code(),
+            referral_code=_gen_referral_code(),  # temp placeholder
             referred_by_id=referred_by_id,
             kyc_status=KYCStatus.PENDING,
             last_login_ip=ip,
         )
         self.db.add(user)
         await self.db.flush()  # Get the ID
+
+        # Auto-generate referral_code as WK-{first 6 chars of user id}
+        wk_code = _gen_wk_referral_code(str(user.id))
+
+        # Ensure uniqueness — if collision, append random chars
+        existing = await self._find_by_referral(wk_code)
+        if existing and existing.id != user.id:
+            wk_code = f"{wk_code}{secrets.choice(string.ascii_uppercase)}{secrets.choice(string.digits)}"
+
+        user.referral_code = wk_code
 
         tokens = await self.create_tokens(user)
         return tokens, user
@@ -135,12 +152,14 @@ class AuthService:
                 wallet_address=wallet_address.lower(),
                 role=UserRole.BUYER,
                 language="vi",
-                referral_code=_gen_referral_code(),
+                referral_code=_gen_referral_code(),  # temp placeholder
                 kyc_status=KYCStatus.PENDING,
                 last_login_ip=ip,
             )
             self.db.add(user)
             await self.db.flush()
+            # Auto-generate WK- referral code from user id
+            user.referral_code = _gen_wk_referral_code(str(user.id))
 
         user.last_login_at = datetime.now(timezone.utc)
         user.last_login_ip = ip

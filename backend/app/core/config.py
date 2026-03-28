@@ -29,6 +29,8 @@ class Settings(BaseSettings):
         "https://wellkoc.com",
         "https://www.wellkoc.com",
         "https://app.wellkoc.com",
+        "https://wellkoc.netlify.app",
+        "https://wellkoc-api.onrender.com",
     ]
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -123,6 +125,16 @@ class Settings(BaseSettings):
     # ── Pagination ──────────────────────────────
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def fix_database_url(cls, v: str) -> str:
+        """Render provides postgres:// but asyncpg needs postgresql+asyncpg://"""
+        if v.startswith("postgres://"):
+            v = v.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif v.startswith("postgresql://"):
+            v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
 
     @field_validator("SECRET_KEY")
     @classmethod

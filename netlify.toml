@@ -5,8 +5,8 @@
 
 [build.environment]
   NODE_VERSION = "20"
-  VITE_API_URL = "https://api.wellkoc.com/api/v1"
-  VITE_WS_URL = "wss://api.wellkoc.com/ws"
+  VITE_API_URL = "https://wellkoc-api.onrender.com/api/v1"
+  VITE_WS_URL = "wss://wellkoc-api.onrender.com/ws"
 
 # SPA routing - all routes go to index.html
 [[redirects]]

@@ -32,13 +32,19 @@ if settings.SENTRY_DSN and settings.is_production:
 async def lifespan(app: FastAPI):
     # Startup
     await init_db()
-    await init_redis()
-    print(f"✅ WellKOC {settings.APP_VERSION} started [{settings.APP_ENV}]")
+    try:
+        await init_redis()
+    except Exception as e:
+        print(f"[WARN] Redis unavailable, running without cache: {e}")
+    print(f"WellKOC {settings.APP_VERSION} started [{settings.APP_ENV}]")
     yield
     # Shutdown
     await close_db()
-    await close_redis()
-    print("🛑 WellKOC shutdown complete")
+    try:
+        await close_redis()
+    except Exception:
+        pass
+    print("WellKOC shutdown complete")
 
 
 # ── App factory ─────────────────────────────────────────────
@@ -47,9 +53,9 @@ def create_app() -> FastAPI:
         title="WellKOC API",
         description="Web3 Social Commerce Platform API — Vietnam",
         version=settings.APP_VERSION,
-        docs_url="/docs" if not settings.is_production else None,
-        redoc_url="/redoc" if not settings.is_production else None,
-        openapi_url="/openapi.json" if not settings.is_production else None,
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
         lifespan=lifespan,
     )
 
