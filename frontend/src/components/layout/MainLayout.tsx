@@ -46,7 +46,7 @@ const TICKER_ITEMS = [
   '🛒 Mua nhóm AI: Serum Vitamin C — 234 người tham gia',
   '🏆 Top KOC tuần: @beautyLien · 89 đơn',
   '💎 Creator Token $BIEN +12.5% 24h',
-  '🤖 111 AI Agents đang hoạt động',
+  '🤖 333 AI Agents đang hoạt động',
   '📦 12,847 đơn hàng hôm nay',
 ];
 
@@ -87,10 +87,10 @@ const DRAWER_SECTIONS = [
     items: [
       { to: '/dpp', key: 'drawer.dpp', icon: '⬡' },
       { to: '/pricing', key: 'drawer.pricing', icon: '💰' },
-      { to: '/dashboard', key: 'drawer.commission', icon: '◈' },
-      { to: '/dashboard', key: 'drawer.creatorToken', icon: '◎' },
-      { to: '/dashboard', key: 'drawer.reputationNft', icon: '◇' },
-      { to: '/dashboard', key: 'drawer.wallet', icon: '◆' },
+      { to: '/dashboard?tab=payments', key: 'drawer.commission', icon: '◈' },
+      { to: '/koc', key: 'drawer.creatorToken', icon: '◎' },
+      { to: '/dpp', key: 'drawer.reputationNft', icon: '◇' },
+      { to: '/dashboard?tab=wkpay', key: 'drawer.wallet', icon: '◆' },
     ],
   },
   {
@@ -106,10 +106,10 @@ const DRAWER_SECTIONS = [
   {
     titleKey: 'drawer.account',
     items: [
-      { to: '/dashboard', key: 'drawer.profile', icon: '◈' },
-      { to: '/dashboard', key: 'drawer.notifications', icon: '◎' },
-      { to: '/dashboard', key: 'drawer.settings', icon: '⚙' },
-      { to: '/dashboard', key: 'drawer.language', icon: '◇' },
+      { to: '/dashboard?tab=settings', key: 'drawer.profile', icon: '◈' },
+      { to: '/dashboard?tab=notifications', key: 'drawer.notifications', icon: '◎' },
+      { to: '/dashboard?tab=settings', key: 'drawer.settings', icon: '⚙' },
+      { to: '/dashboard?tab=settings', key: 'drawer.language', icon: '◇' },
     ],
   },
 ];
@@ -138,10 +138,10 @@ const FOOTER_LINKS = [
   {
     titleKey: 'footer.legal',
     links: [
-      { to: '#', label: 'Điều khoản' },
-      { to: '#', label: 'Chính sách riêng tư' },
-      { to: '#', label: 'Cookie Policy' },
-      { to: '#', label: 'Liên hệ' },
+      { to: '/pricing', label: 'Điều khoản' },
+      { to: '/pricing', label: 'Chính sách riêng tư' },
+      { to: '/pricing', label: 'Cookie Policy' },
+      { to: '/pricing', label: 'Liên hệ' },
     ],
   },
 ];
@@ -184,12 +184,12 @@ export default function MainLayout() {
   const handleLogout = () => {
     logout();
     setUserMenuOpen(false);
-    navigate('/login');
+    navigate('/');
   };
 
   const userInitials = user?.name
     ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-    : '??';
+    : user?.email ? user.email[0].toUpperCase() : 'U';
 
   // Prevent body scroll when drawer is open
   useEffect(() => {
@@ -429,7 +429,7 @@ export default function MainLayout() {
                   borderRadius: 12, padding: 6, minWidth: 180,
                   boxShadow: 'var(--shadow-float)', zIndex: 1010,
                 }}>
-                  <Link to="/dashboard" onClick={() => setUserMenuOpen(false)} style={{
+                  <Link to="/dashboard?tab=profile" onClick={() => setUserMenuOpen(false)} style={{
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%',
                     padding: '8px 12px', borderRadius: 8, fontSize: '0.82rem',
                     color: 'var(--text-2)', textDecoration: 'none', transition: 'var(--t-fast)',
@@ -443,7 +443,7 @@ export default function MainLayout() {
                   }}>
                     <span style={{ fontSize: '1rem' }}>📊</span> Dashboard
                   </Link>
-                  <Link to="/dashboard" onClick={() => setUserMenuOpen(false)} style={{
+                  <Link to="/dashboard?tab=settings" onClick={() => setUserMenuOpen(false)} style={{
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%',
                     padding: '8px 12px', borderRadius: 8, fontSize: '0.82rem',
                     color: 'var(--text-2)', textDecoration: 'none', transition: 'var(--t-fast)',
@@ -787,12 +787,24 @@ export default function MainLayout() {
       </div>
 
       {/* ═══ MAIN CONTENT ═══ */}
-      <main style={{ marginTop: 100, flex: 1 }}>
-        <Outlet />
-      </main>
+      {(() => {
+        const isDashPage = ['/dashboard', '/koc', '/vendor', '/admin'].some(p => location.pathname.startsWith(p));
+        if (isDashPage) {
+          return (
+            <main style={{ position: 'fixed', top: 100, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
+              <Outlet />
+            </main>
+          );
+        }
+        return (
+          <main style={{ marginTop: 100, flex: 1 }}>
+            <Outlet />
+          </main>
+        );
+      })()}
 
-      {/* ═══ FOOTER ═══ */}
-      <footer
+      {/* ═══ FOOTER — hidden on dashboard pages ═══ */}
+      {!['/dashboard', '/koc', '/vendor', '/admin'].some(p => location.pathname.startsWith(p)) && <footer
         style={{
           borderTop: '1px solid var(--border)',
           background: 'var(--bg-1)',
@@ -901,7 +913,7 @@ export default function MainLayout() {
             <span style={{ fontFamily: 'var(--ff-mono)' }}>v3.0 · Chakra 4567</span>
           </div>
         </div>
-      </footer>
+      </footer>}
 
       {/* ═══ GLOBAL STYLES (injected) ═══ */}
       <style>{`

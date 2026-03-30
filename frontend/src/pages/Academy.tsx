@@ -51,9 +51,9 @@ const curriculum: DayData[] = [
     ]
   },
   {
-    day: 5, title: 'AI Agents & Automation', subtitle: 'Sử dụng 111 AI agents hỗ trợ', icon: '🤖', color: 'var(--c6-300)',
+    day: 5, title: 'AI Agents & Automation', subtitle: 'Sử dụng 333 AI agents hỗ trợ', icon: '🤖', color: 'var(--c6-300)',
     lessons: [
-      { title: 'Giới thiệu 111 AI Agents', duration: '30 phút', type: 'Video', description: 'Tổng quan về hệ thống 111 AI agents và cách chúng hỗ trợ KOC.', topics: ['Content AI', 'Analytics AI', 'Customer Service AI', 'Pricing AI'] },
+      { title: 'Giới thiệu 333 AI Agents', duration: '30 phút', type: 'Video', description: 'Tổng quan về hệ thống 333 AI agents và cách chúng hỗ trợ KOC.', topics: ['Content AI', 'Analytics AI', 'Customer Service AI', 'Pricing AI'] },
       { title: 'Thực hành sử dụng AI tools', duration: '40 phút', type: 'Lab', description: 'Hands-on với các AI agent phổ biến nhất.', topics: ['AI Content Generator', 'AI Hashtag Optimizer', 'AI Performance Analyzer', 'AI Customer Bot'] },
       { title: 'Bài tập: Tạo chiến dịch với AI', duration: '30 phút', type: 'Lab', description: 'Sử dụng AI để lên kế hoạch và tạo nội dung cho chiến dịch.', topics: ['Campaign planning', 'AI-assisted content', '+150 XP'] },
     ]

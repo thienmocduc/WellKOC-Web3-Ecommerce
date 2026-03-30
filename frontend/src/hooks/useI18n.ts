@@ -51,7 +51,7 @@ const translations: TranslationMap = {
   'drawer.wallet': { vi: 'Ví · Wallet', en: 'Wallet', zh: '钱包', th: 'กระเป๋าเงิน', hi: 'वॉलेट' },
 
   // Drawer items - AI
-  'drawer.agents': { vi: '111 AI Agents', en: '111 AI Agents', zh: '111 AI 代理', th: '111 เอไอเอเจนท์', hi: '111 AI एजेंट' },
+  'drawer.agents': { vi: '333 AI Agents', en: '333 AI Agents', zh: '333 AI 代理', th: '333 เอไอเอเจนท์', hi: '333 AI एजेंट' },
   'drawer.groupBuy': { vi: 'Mua nhóm AI', en: 'AI Group Buy', zh: 'AI 团购', th: 'AI ซื้อกลุ่ม', hi: 'AI ग्रुप बाय' },
   'drawer.liveCommerce': { vi: 'AI Live Commerce', en: 'AI Live Commerce', zh: 'AI 直播电商', th: 'AI ไลฟ์คอมเมิร์ซ', hi: 'AI लाइव कॉमर्स' },
   'drawer.socialGraph': { vi: 'Social Graph', en: 'Social Graph', zh: '社交图谱', th: 'โซเชียลกราฟ', hi: 'सोशल ग्राफ' },

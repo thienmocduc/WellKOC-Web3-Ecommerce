@@ -211,10 +211,10 @@ export default function Agents() {
             🤖 AI AGENTS
           </div>
           <h1 className="display-lg gradient-text" style={{ marginBottom: 12 }}>
-            111 AI Agents
+            333 AI Agents
           </h1>
           <p style={{ color: 'var(--text-3)', maxWidth: 580, margin: '0 auto', fontSize: '.88rem' }}>
-            Hệ thống 111 AI agents chuyên biệt hỗ trợ mọi hoạt động trên nền tảng WellKOC.
+            Hệ thống 333 AI agents chuyên biệt hỗ trợ mọi hoạt động trên nền tảng WellKOC.
           </p>
           <div className="flex gap-16" style={{ justifyContent: 'center', marginTop: 24 }}>
             <div style={{ textAlign: 'center' }}>

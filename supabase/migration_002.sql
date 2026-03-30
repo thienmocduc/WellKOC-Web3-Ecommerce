@@ -7,12 +7,12 @@
 create table public.platform_policies (
   id           uuid default uuid_generate_v4() primary key,
   key          text unique not null,   -- 't1_pct', 't2_pct', 'pool_a_pct', etc.
-  value        numeric(8,4) not null,
+  value        numeric(15,4) not null,
   label_vi     text not null,
   label_en     text not null,
   description  text,
-  min_val      numeric(8,4) not null default 0,
-  max_val      numeric(8,4) not null default 100,
+  min_val      numeric(15,4) not null default 0,
+  max_val      numeric(15,4) not null default 100,
   updated_by   uuid references public.profiles(id),
   updated_at   timestamptz not null default now()
 );
@@ -174,7 +174,7 @@ create policy "kyc_admin" on public.kyc_submissions for all
 
 -- Product images: vendors see own
 create policy "product_images_read" on public.product_images for select using (true);
-create policy "product_images_vendor" on public.product_images for insert update delete
+create policy "product_images_vendor" on public.product_images for all
   using (exists(select 1 from public.products p where p.id = product_id and p.vendor_id = auth.uid()));
 
 -- Returns: buyers see own, vendors see their orders

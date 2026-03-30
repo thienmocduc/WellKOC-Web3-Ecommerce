@@ -53,7 +53,7 @@ const LOGIN_CSS = `
 `;
 
 export default function Login() {
-  const { loginAsync, loginWithGoogle, loginWithFacebook } = useAuth();
+  const { loginAsync, loginWithGoogle, loginWithFacebook, loginWithWallet, isAuthenticated: isAuthed, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get('redirect');
@@ -63,10 +63,19 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [emailFocused, setEmailFocused] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
+  // emailFocused/passwordFocused removed — using simple label+input
   const [showPassword, setShowPassword] = useState(false);
   const [isAdminMode, setIsAdminMode] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+
+  // If already authenticated (e.g. after Google OAuth redirect), go to dashboard
+  useEffect(() => {
+    if (isAuthed && !authLoading) {
+      navigate(redirectTo || '/dashboard', { replace: true });
+    }
+  }, [isAuthed, authLoading, navigate, redirectTo]);
 
   // Inject CSS once
   useEffect(() => {
@@ -118,8 +127,10 @@ export default function Login() {
   const handleVNeIDLogin = async () => {
     setError('');
     try {
-      // Call backend to get VNeID OAuth URL
-      const res = await fetch('/api/v1/verify/vneid/auth-url', {
+      const API_BASE = import.meta.env.VITE_API_URL
+        ? `${import.meta.env.VITE_API_URL}/api/v1`
+        : '/api/v1';
+      const res = await fetch(`${API_BASE}/verify/vneid/auth-url`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token') || ''}` },
       });
       if (res.ok) {
@@ -130,6 +141,18 @@ export default function Login() {
       }
     } catch {
       setError('Không thể kết nối VNeID. Vui lòng thử lại.');
+    }
+  };
+
+  const handleWalletLogin = async () => {
+    setError('');
+    setLoading(true);
+    const result = await loginWithWallet();
+    setLoading(false);
+    if (result.success) {
+      navigate(redirectTo || '/dashboard');
+    } else {
+      setError(result.error || 'Kết nối ví thất bại');
     }
   };
 
@@ -180,6 +203,11 @@ export default function Login() {
           </div>
 
           <div className="login-content">
+            {/* Back to home */}
+            <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', textDecoration: 'none', fontSize: '.78rem', marginBottom: 16, transition: 'color .2s' }} onMouseEnter={e => e.currentTarget.style.color = 'var(--c6-300)'} onMouseLeave={e => e.currentTarget.style.color = 'var(--text-3)'}>
+              ← Về trang chủ
+            </Link>
+
             {/* Header */}
             <div style={{ marginBottom: 16 }}>
               <h2 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: 4, color: 'var(--text-1)' }}>
@@ -221,21 +249,27 @@ export default function Login() {
 
             {/* Login Form */}
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ position: 'relative' }}>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} onFocus={() => setEmailFocused(true)} onBlur={() => setEmailFocused(false)} required placeholder=" "
-                  style={{ width: '100%', padding: '20px 16px 8px', borderRadius: 12, border: '1px solid', borderColor: emailFocused ? 'var(--c7-500, #6366f1)' : 'var(--border)', background: 'var(--bg-2)', color: 'var(--text-1)', fontSize: '.88rem', outline: 'none', fontFamily: 'var(--ff-body, system-ui)', transition: 'border-color .2s' }} />
-                <label style={{ position: 'absolute', left: 16, top: email || emailFocused ? 6 : 14, fontSize: email || emailFocused ? '.65rem' : '.82rem', color: emailFocused ? 'var(--c7-500, #6366f1)' : 'var(--text-4)', transition: 'all .2s', pointerEvents: 'none', fontWeight: 600, letterSpacing: '.02em' }}>Email</label>
+              <div>
+                <label style={{ display: 'block', fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 6 }}>Email</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@example.com"
+                  style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text-1)', fontSize: '.88rem', outline: 'none', fontFamily: 'var(--ff-body, system-ui)', transition: 'border-color .2s' }}
+                  onFocus={e => e.target.style.borderColor = 'var(--c7-500, #6366f1)'}
+                  onBlur={e => e.target.style.borderColor = 'var(--border)'} />
               </div>
 
-              <div style={{ position: 'relative' }}>
-                <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} onFocus={() => setPasswordFocused(true)} onBlur={() => setPasswordFocused(false)} required placeholder=" "
-                  style={{ width: '100%', padding: '20px 48px 8px 16px', borderRadius: 12, border: '1px solid', borderColor: passwordFocused ? 'var(--c7-500, #6366f1)' : 'var(--border)', background: 'var(--bg-2)', color: 'var(--text-1)', fontSize: '.88rem', outline: 'none', fontFamily: 'var(--ff-body, system-ui)', transition: 'border-color .2s' }} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: '1rem', padding: 4, display: 'flex', alignItems: 'center' }} tabIndex={-1}>{showPassword ? '🙈' : '👁️'}</button>
-                <label style={{ position: 'absolute', left: 16, top: password || passwordFocused ? 6 : 14, fontSize: password || passwordFocused ? '.65rem' : '.82rem', color: passwordFocused ? 'var(--c7-500, #6366f1)' : 'var(--text-4)', transition: 'all .2s', pointerEvents: 'none', fontWeight: 600, letterSpacing: '.02em' }}>Mật khẩu</label>
+              <div>
+                <label style={{ display: 'block', fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 6 }}>Mật khẩu</label>
+                <div style={{ position: 'relative' }}>
+                  <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••"
+                    style={{ width: '100%', padding: '12px 48px 12px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text-1)', fontSize: '.88rem', outline: 'none', fontFamily: 'var(--ff-body, system-ui)', transition: 'border-color .2s' }}
+                    onFocus={e => e.target.style.borderColor = 'var(--c7-500, #6366f1)'}
+                    onBlur={e => e.target.style.borderColor = 'var(--border)'} />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: '1rem', padding: 4 }} tabIndex={-1}>{showPassword ? '🙈' : '👁️'}</button>
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Link to="#" style={{ color: 'var(--c6-300, #06b6d4)', textDecoration: 'none', fontSize: '.78rem', fontWeight: 600 }}>Quên mật khẩu?</Link>
+                <span onClick={() => { setShowForgotPassword(true); setForgotEmail(email); setForgotSent(false); }} style={{ color: 'var(--c6-300, #06b6d4)', textDecoration: 'none', fontSize: '.78rem', fontWeight: 600, cursor: 'pointer' }}>Quên mật khẩu?</span>
               </div>
 
               <button type="submit" className="btn btn-primary btn-lg" disabled={loading} style={{ width: '100%', padding: '12px 24px', opacity: loading ? 0.7 : 1, fontSize: '.88rem' }}>
@@ -260,7 +294,7 @@ export default function Login() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
                 Facebook
               </button>
-              <button className="btn btn-secondary" onClick={() => console.log('Wallet connect coming soon')} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 12px', fontSize: '.78rem' }}>
+              <button className="btn btn-secondary" onClick={handleWalletLogin} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 12px', fontSize: '.78rem' }}>
                 <span style={{ fontSize: '.9rem' }}>🔗</span>Wallet
               </button>
             </div>
@@ -296,6 +330,32 @@ export default function Login() {
           </div>
         </div>
       </div>
+      {/* Forgot Password Modal */}
+      {showForgotPassword && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setShowForgotPassword(false)}>
+          <div style={{ background: 'var(--bg-1)', borderRadius: 16, padding: 28, maxWidth: 420, width: '100%', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontWeight: 700, fontSize: '1rem', marginBottom: 4 }}>Quên mật khẩu?</h3>
+            <p style={{ fontSize: '.78rem', color: 'var(--text-3)', marginBottom: 20 }}>Nhập email đăng ký để nhận link đặt lại mật khẩu.</p>
+            {!forgotSent ? (
+              <>
+                <input type="email" placeholder="Email đăng ký" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} style={{ width: '100%', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text-1)', fontSize: '.88rem', marginBottom: 16 }} />
+                <button className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: '.88rem' }} onClick={async () => {
+                  if (!forgotEmail.includes('@')) return;
+                  try { await (await import('../lib/supabase')).supabase.auth.resetPasswordForEmail(forgotEmail, { redirectTo: window.location.origin + '/login' }); } catch {}
+                  setForgotSent(true);
+                }}>Gửi link đặt lại mật khẩu</button>
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', padding: 20 }}>
+                <div style={{ fontSize: '2rem', marginBottom: 8 }}>📧</div>
+                <div style={{ fontWeight: 700, fontSize: '.88rem', marginBottom: 4 }}>Đã gửi email!</div>
+                <div style={{ fontSize: '.78rem', color: 'var(--text-3)' }}>Kiểm tra hộp thư <strong>{forgotEmail}</strong> để đặt lại mật khẩu.</div>
+              </div>
+            )}
+            <button style={{ marginTop: 12, width: '100%', padding: '10px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', fontSize: '.82rem' }} onClick={() => setShowForgotPassword(false)}>Đóng</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

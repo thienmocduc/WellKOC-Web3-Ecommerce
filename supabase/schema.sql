@@ -368,7 +368,7 @@ create policy "profiles_admin" on public.profiles for all
 -- Products: vendors manage own, all can read active
 create policy "products_read" on public.products for select
   using (status = 'active' or vendor_id = auth.uid());
-create policy "products_vendor_write" on public.products for insert update delete
+create policy "products_vendor_write" on public.products for all
   using (vendor_id = auth.uid());
 
 -- Orders: buyers/vendors/koc see own
@@ -549,7 +549,7 @@ create policy "Vendors can view returns for their orders"
   on public.return_requests for select
   using (
     order_id in (
-      select id from public.orders where vendor_id = auth.uid()
+      select oi.order_id from public.order_items oi where oi.vendor_id = auth.uid()
     )
   );
 
@@ -557,7 +557,7 @@ create policy "Vendors can update return requests for their orders"
   on public.return_requests for update
   using (
     order_id in (
-      select id from public.orders where vendor_id = auth.uid()
+      select oi.order_id from public.order_items oi where oi.vendor_id = auth.uid()
     )
   );
 

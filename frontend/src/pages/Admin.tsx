@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@hooks/useTheme';
+import AdminOverview from '@components/admin/AdminOverview';
+import AdminKYC from '@components/admin/AdminKYC';
 
 const STORAGE_KEY = 'wellkoc-auth';
 
@@ -61,7 +63,7 @@ const sidebarSections: SidebarSection[] = [
     { key: 'reputation', icon: '🏅', label: 'Reputation NFT' },
   ]},
   { title: 'AI & AUTOMATION', color: '#14b8a6', groupIcon: '🤖', items: [
-    { key: 'aiAgents', icon: '🤖', label: '111 AI Agents' },
+    { key: 'aiAgents', icon: '🤖', label: '333 AI Agents' },
     { key: 'aiCaption', icon: '✍️', label: 'AI Caption / Hashtag' },
     { key: 'aiScheduler', icon: '📅', label: 'Content Calendar' },
     { key: 'fraud', icon: '🚨', label: 'Fraud Detection' },
@@ -281,6 +283,22 @@ export default function Admin() {
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({ root: true, 'minh-huong': true, 'ngoc-anh': true, 'nguyen-a': true, 'thao-linh': true });
   const [treeSearch, setTreeSearch] = useState('');
   const navigate = useNavigate();
+  const [adminToast, setAdminToast] = useState('');
+  const showToast = (msg: string) => { setAdminToast(msg); setTimeout(() => setAdminToast(''), 5000); };
+  // Admin CRUD state
+  const [adminUsers, setAdminUsers] = useState(usersData);
+  const [adminProducts, setAdminProducts] = useState(productsData);
+  const [adminOrders, setAdminOrders] = useState(ordersData);
+  const [adminKocs, setAdminKocs] = useState(kocData);
+  const [adminVendors, setAdminVendors] = useState(vendorsData);
+  // Track status overrides for default CRM sections (key = "tab-rowIndex")
+  const [rowOverrides, setRowOverrides] = useState<Record<string, string>>({});
+  const overrideRow = (tab: string, rowIdx: number, newStatus: string) => {
+    setRowOverrides(prev => ({ ...prev, [`${tab}-${rowIdx}`]: newStatus }));
+  };
+  // Detail panel state for default sections
+  const [detailRow, setDetailRow] = useState<{ tab: string; row: string[]; headers: string[]; title: string; ri: number } | null>(null);
+  const [editingField, setEditingField] = useState<Record<string, string>>({});
   const { isDark, toggleTheme } = useTheme();
 
   const toggleAdminGroup = (title: string) => setOpenAdminGroups(prev => ({ ...prev, [title]: !prev[title] }));
@@ -330,32 +348,11 @@ export default function Admin() {
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
-        return (
-          <>
-            <h2 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: 20 }}>Tổng Quan Hệ Thống</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
-              {overviewKPIs.map((kpi, i) => (
-                <div key={i} className="kpi-card">
-                  <div className="kpi-label">{kpi.label}</div>
-                  <div className="kpi-val" style={{ color: kpi.color }}>{kpi.value}</div>
-                  <div className="kpi-delta delta-up">↑ {kpi.delta}</div>
-                </div>
-              ))}
-            </div>
-            <div className="chart-bar-wrap">
-              <div className="label" style={{ marginBottom: 12 }}>DOANH THU 12 THÁNG (tỷ VNĐ)</div>
-              <div className="chart-bars">
-                {[45, 52, 48, 65, 72, 68, 78, 85, 92, 88, 95, 100].map((v, i) => (
-                  <div key={i} className="chart-bar" style={{ height: `${v}%` }} />
-                ))}
-              </div>
-            </div>
-          </>
-        );
+        return <AdminOverview kpis={overviewKPIs} users={adminUsers} orders={adminOrders} kocs={adminKocs} vendors={adminVendors} products={adminProducts} commissions={commissionData} onNavigate={setActiveTab} />;
 
       /* ====== UPGRADED: USERS ====== */
       case 'users': {
-        const filteredUsers = usersData.filter(u => {
+        const filteredUsers = adminUsers.filter(u => {
           const matchSearch = !userSearch || u.name.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase()) || u.id.toLowerCase().includes(userSearch.toLowerCase());
           const matchRole = userRoleFilter === 'all' || u.role === userRoleFilter;
           return matchSearch && matchRole;
@@ -366,7 +363,7 @@ export default function Admin() {
               <h2 style={{ fontWeight: 700, fontSize: '1.1rem' }}>Quản Lý Người Dùng</h2>
               <div className="flex gap-8" style={{ alignItems: 'center' }}>
                 <span className="badge badge-c5" style={{ fontSize: '.75rem', padding: '4px 12px' }}>Tổng: {usersData.length} người dùng</span>
-                <button style={btnPrimSm} onClick={() => console.log('ACTION: Thêm user mới')}>+ Thêm user</button>
+                <button style={btnPrimSm} onClick={() => showToast('Thêm user mới')}>+ Thêm user</button>
               </div>
             </div>
             {/* Search & Filter bar */}
@@ -379,7 +376,7 @@ export default function Admin() {
                 <option value="vendor">Vendor</option>
                 <option value="admin">Admin</option>
               </select>
-              <span style={{ fontSize: '.75rem', color: 'var(--text-3)', alignSelf: 'center' }}>Hiển thị {filteredUsers.length}/{usersData.length}</span>
+              <span style={{ fontSize: '.75rem', color: 'var(--text-3)', alignSelf: 'center' }}>Hiển thị {filteredUsers.length}/{adminUsers.length}</span>
             </div>
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               <div style={{ overflowX: 'auto' }}>
@@ -404,11 +401,11 @@ export default function Admin() {
                         <td style={tdStyle}>{u.referrals > 0 ? <span className="badge badge-c4">{u.referrals}</span> : <span style={{ color: 'var(--text-4)' }}>0</span>}</td>
                         <td style={tdStyle}>
                           <div className="flex gap-4" style={{ flexWrap: 'wrap' }}>
-                            <button style={btnSm} onClick={() => console.log('ACTION: Chỉnh sửa user', u.id)}>Chỉnh sửa</button>
-                            <button style={u.status === 'suspended' ? btnSuccessSm : btnWarnSm} onClick={() => console.log(`ACTION: ${u.status === 'suspended' ? 'Mở khóa' : 'Tạm khóa'} user`, u.id)}>
+                            <button style={btnSm} onClick={() => showToast(`Đang chỉnh sửa user ${u.name}`)}>Chỉnh sửa</button>
+                            <button style={u.status === 'suspended' ? btnSuccessSm : btnWarnSm} onClick={() => (() => { setAdminUsers(prev => prev.map(x => x.id === u.id ? { ...x, status: x.status === 'suspended' ? 'active' : 'suspended' } : x)); showToast(`${u.status === 'suspended' ? 'Đã mở khóa' : 'Đã tạm khóa'} user ${u.name}`); })()}>
                               {u.status === 'suspended' ? 'Mở khóa' : 'Tạm khóa'}
                             </button>
-                            <button style={btnSm} onClick={() => console.log('ACTION: Xem tree user', u.id)}>Xem tree</button>
+                            <button style={btnSm} onClick={() => showToast(`Đang xem tree user ${u.name}`)}>Xem tree</button>
                           </div>
                         </td>
                       </tr>
@@ -423,7 +420,7 @@ export default function Admin() {
 
       /* ====== UPGRADED: PRODUCTS ====== */
       case 'products': {
-        const filteredProducts = productsData.filter(p => {
+        const filteredProducts = adminProducts.filter(p => {
           const matchSearch = !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.id.toLowerCase().includes(productSearch.toLowerCase()) || p.vendor.toLowerCase().includes(productSearch.toLowerCase());
           const matchStatus = productStatusFilter === 'all' || p.status === productStatusFilter;
           return matchSearch && matchStatus;
@@ -432,7 +429,7 @@ export default function Admin() {
           <>
             <div className="flex" style={{ justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
               <h2 style={{ fontWeight: 700, fontSize: '1.1rem' }}>Quản Lý Sản Phẩm</h2>
-              <button style={btnPrimSm} onClick={() => console.log('ACTION: Thêm sản phẩm mới')}>+ Thêm SP</button>
+              <button style={btnPrimSm} onClick={() => showToast('Thêm sản phẩm mới')}>+ Thêm SP</button>
             </div>
             <div className="flex gap-8" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
               <input type="text" placeholder="Tìm sản phẩm, vendor, ID..." value={productSearch} onChange={e => setProductSearch(e.target.value)} style={searchInputStyle} />
@@ -442,7 +439,7 @@ export default function Admin() {
                 <option value="pending">Chờ duyệt</option>
                 <option value="rejected">Từ chối</option>
               </select>
-              <span style={{ fontSize: '.75rem', color: 'var(--text-3)', alignSelf: 'center' }}>Hiển thị {filteredProducts.length}/{productsData.length}</span>
+              <span style={{ fontSize: '.75rem', color: 'var(--text-3)', alignSelf: 'center' }}>Hiển thị {filteredProducts.length}/{adminProducts.length}</span>
             </div>
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               <div style={{ overflowX: 'auto' }}>
@@ -464,21 +461,21 @@ export default function Admin() {
                         <td style={tdStyle}>
                           {p.dpp
                             ? <span className="badge badge-c4">DPP ✓</span>
-                            : <button style={{ ...btnSm, color: 'var(--c6-500)', borderColor: 'var(--c6-500)' }} onClick={() => console.log('ACTION: Mint DPP', p.id)}>Mint DPP</button>
+                            : <button style={{ ...btnSm, color: 'var(--c6-500)', borderColor: 'var(--c6-500)' }} onClick={() => showToast(`Đang mint DPP cho ${p.name}`)}>Mint DPP</button>
                           }
                         </td>
                         <td style={tdStyle}>{p.sales.toLocaleString()}</td>
                         <td style={tdStyle}><span className={`badge ${statusBadge[p.status]}`}>{statusLabel[p.status]}</span></td>
                         <td style={tdStyle}>
                           <div className="flex gap-4" style={{ flexWrap: 'wrap' }}>
-                            <button style={btnSm} onClick={() => console.log('ACTION: Sửa sản phẩm', p.id)}>Sửa</button>
+                            <button style={btnSm} onClick={() => showToast(`Đang sửa sản phẩm ${p.name}`)}>Sửa</button>
                             {p.status === 'pending' && (
                               <>
-                                <button style={btnSuccessSm} onClick={() => console.log('ACTION: Duyệt sản phẩm', p.id)}>Duyệt</button>
-                                <button style={btnWarnSm} onClick={() => console.log('ACTION: Từ chối sản phẩm', p.id)}>Từ chối</button>
+                                <button style={btnSuccessSm} onClick={() => (() => { setAdminProducts(prev => prev.map(x => x.id === p.id ? { ...x, status: 'active' } : x)); showToast(`Đã duyệt sản phẩm ${p.name}`); })()}>Duyệt</button>
+                                <button style={btnWarnSm} onClick={() => (() => { setAdminProducts(prev => prev.map(x => x.id === p.id ? { ...x, status: 'rejected' } : x)); showToast(`Đã từ chối sản phẩm ${p.name}`); })()}>Từ chối</button>
                               </>
                             )}
-                            <button style={btnDangerSm} onClick={() => console.log('ACTION: Xóa sản phẩm', p.id)}>Xóa</button>
+                            <button style={btnDangerSm} onClick={() => (() => { setAdminProducts(prev => prev.filter(x => x.id !== p.id)); showToast(`Đã xoá sản phẩm ${p.name}`); })()}>Xóa</button>
                           </div>
                         </td>
                       </tr>
@@ -493,18 +490,18 @@ export default function Admin() {
 
       /* ====== UPGRADED: ORDERS ====== */
       case 'orders': {
-        const filteredOrders = ordersData.filter(o => {
+        const filteredOrders = adminOrders.filter(o => {
           const matchStatus = orderStatusFilter === 'all' || o.status === orderStatusFilter;
           const matchDateFrom = !orderDateFrom || o.date >= orderDateFrom;
           const matchDateTo = !orderDateTo || o.date <= orderDateTo;
           return matchStatus && matchDateFrom && matchDateTo;
         });
         const orderStats = [
-          { label: 'Tổng đơn', value: String(ordersData.length), color: 'var(--c4-500)' },
-          { label: 'Chờ xử lý', value: String(ordersData.filter(o => o.status === 'pending').length), color: 'var(--gold-400)' },
-          { label: 'Đang giao', value: String(ordersData.filter(o => o.status === 'shipping').length), color: 'var(--c6-500)' },
-          { label: 'Đã giao', value: String(ordersData.filter(o => o.status === 'delivered').length), color: 'var(--c5-500)' },
-          { label: 'Đã hủy', value: String(ordersData.filter(o => o.status === 'cancelled').length), color: '#ef4444' },
+          { label: 'Tổng đơn', value: String(adminOrders.length), color: 'var(--c4-500)' },
+          { label: 'Chờ xử lý', value: String(adminOrders.filter(o => o.status === 'pending').length), color: 'var(--gold-400)' },
+          { label: 'Đang giao', value: String(adminOrders.filter(o => o.status === 'shipping').length), color: 'var(--c6-500)' },
+          { label: 'Đã giao', value: String(adminOrders.filter(o => o.status === 'delivered').length), color: 'var(--c5-500)' },
+          { label: 'Đã hủy', value: String(adminOrders.filter(o => o.status === 'cancelled').length), color: '#ef4444' },
         ];
         return (
           <>
@@ -529,7 +526,7 @@ export default function Admin() {
               <input type="date" value={orderDateFrom} onChange={e => setOrderDateFrom(e.target.value)} style={{ ...searchInputStyle, minWidth: 140 }} />
               <span style={{ fontSize: '.75rem', color: 'var(--text-3)' }}>Đến:</span>
               <input type="date" value={orderDateTo} onChange={e => setOrderDateTo(e.target.value)} style={{ ...searchInputStyle, minWidth: 140 }} />
-              <span style={{ fontSize: '.75rem', color: 'var(--text-3)' }}>Hiển thị {filteredOrders.length}/{ordersData.length}</span>
+              <span style={{ fontSize: '.75rem', color: 'var(--text-3)' }}>Hiển thị {filteredOrders.length}/{adminOrders.length}</span>
             </div>
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               <div style={{ overflowX: 'auto' }}>
@@ -553,7 +550,7 @@ export default function Admin() {
                           {o.status !== 'cancelled' ? (
                             <select
                               value={o.status}
-                              onChange={e => console.log('ACTION: Đổi trạng thái đơn', o.id, 'thành', e.target.value)}
+                              onChange={e => (() => { setAdminOrders(prev => prev.map(x => x.id === o.id ? { ...x, status: e.target.value } : x)); showToast(`Đã đổi trạng thái đơn ${o.id} thành ${e.target.value}`); })()}
                               style={{ ...filterSelectStyle, padding: '4px 8px', fontSize: '.72rem', minWidth: 120 }}
                             >
                               {orderStatusFlow.map(s => (
@@ -567,9 +564,9 @@ export default function Admin() {
                         <td style={{ ...tdStyle, color: 'var(--text-3)' }}>{o.date}</td>
                         <td style={tdStyle}>
                           <div className="flex gap-4" style={{ flexWrap: 'wrap' }}>
-                            <button style={btnSm} onClick={() => console.log('ACTION: Xem chi tiết đơn', o.id)}>Xem chi tiết</button>
+                            <button style={btnSm} onClick={() => showToast(`Đang xem chi tiết đơn ${o.id}`)}>Xem chi tiết</button>
                             {o.status !== 'cancelled' && (
-                              <button style={btnWarnSm} onClick={() => console.log('ACTION: Hoàn tiền đơn', o.id)}>Hoàn tiền</button>
+                              <button style={btnWarnSm} onClick={() => showToast(`Đã hoàn tiền đơn ${o.id}`)}>Hoàn tiền</button>
                             )}
                           </div>
                         </td>
@@ -597,7 +594,7 @@ export default function Admin() {
             <div className="flex" style={{ justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
               <h2 style={{ fontWeight: 700, fontSize: '1.1rem' }}>Quản Lý Hoa Hồng</h2>
               {pendingCount > 0 && (
-                <button style={btnPrimSm} onClick={() => console.log('ACTION: Thanh toán hàng loạt', pendingCount, 'pending commissions')}>
+                <button style={btnPrimSm} onClick={() => showToast(`Đang thanh toán ${pendingCount} commissions...`)}>
                   Thanh toán hàng loạt ({pendingCount})
                 </button>
               )}
@@ -637,7 +634,7 @@ export default function Admin() {
                         <td style={tdStyle}>
                           <div className="flex gap-4">
                             {c.status === 'pending' && (
-                              <button style={btnPrimSm} onClick={() => console.log('ACTION: Thanh toán commission cho', c.koc)}>Thanh toán</button>
+                              <button style={btnPrimSm} onClick={() => showToast(`Đã thanh toán commission cho ${c.koc}`)}>Thanh toán</button>
                             )}
                             {c.status === 'paid' && c.txHash !== '—' && (
                               <a href={`https://polygonscan.com/tx/${c.txHash}`} target="_blank" rel="noreferrer" style={{ ...btnSm, textDecoration: 'none', color: 'var(--c6-300)', borderColor: 'var(--c6-300)' }}>Xem TX</a>
@@ -659,14 +656,14 @@ export default function Admin() {
 
       /* ====== UPGRADED: KOC ====== */
       case 'koc': {
-        const filteredKoc = kocData.filter(k => {
+        const filteredKoc = adminKocs.filter(k => {
           const matchSearch = !kocSearch || k.name.toLowerCase().includes(kocSearch.toLowerCase()) || k.id.toLowerCase().includes(kocSearch.toLowerCase());
           const matchStatus = kocStatusFilter === 'all' || k.status === kocStatusFilter;
           return matchSearch && matchStatus;
         });
         // Tier distribution
         const tierCounts: Record<string, number> = {};
-        kocData.forEach(k => { tierCounts[k.tier] = (tierCounts[k.tier] || 0) + 1; });
+        adminKocs.forEach(k => { tierCounts[k.tier] = (tierCounts[k.tier] || 0) + 1; });
         const maxTierCount = Math.max(...Object.values(tierCounts), 1);
         const tierColors: Record<string, string> = { Bronze: '#cd7f32', Silver: '#c0c0c0', Gold: 'var(--gold-400)', Diamond: 'var(--c4-500)' };
 
@@ -674,7 +671,7 @@ export default function Admin() {
           <>
             <div className="flex" style={{ justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
               <h2 style={{ fontWeight: 700, fontSize: '1.1rem' }}>Quản Lý KOC</h2>
-              <button style={btnPrimSm} onClick={() => console.log('ACTION: Mời KOC mới')}>+ Mời KOC</button>
+              <button style={btnPrimSm} onClick={() => showToast('Mời KOC mới')}>+ Mời KOC</button>
             </div>
             <div className="flex gap-8" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
               <input type="text" placeholder="Tìm KOC..." value={kocSearch} onChange={e => setKocSearch(e.target.value)} style={searchInputStyle} />
@@ -725,7 +722,7 @@ export default function Admin() {
                       <div className="flex gap-4" style={{ marginTop: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                         <select
                           defaultValue={k.tier}
-                          onChange={e => console.log('ACTION: Nâng cấp tier KOC', k.id, 'thành', e.target.value)}
+                          onChange={e => (() => { setAdminKocs(prev => prev.map(x => x.id === k.id ? { ...x, tier: e.target.value } : x)); showToast(`Đã nâng cấp tier KOC ${k.name} thành ${e.target.value}`); })()}
                           style={{ ...filterSelectStyle, padding: '4px 8px', fontSize: '.68rem' }}
                         >
                           <option value="Bronze">Bronze</option>
@@ -733,10 +730,10 @@ export default function Admin() {
                           <option value="Gold">Gold</option>
                           <option value="Diamond">Diamond</option>
                         </select>
-                        <button style={k.status === 'suspended' ? btnSuccessSm : btnWarnSm} onClick={() => console.log(`ACTION: ${k.status === 'suspended' ? 'Mở khóa' : 'Tạm khóa'} KOC`, k.id)}>
+                        <button style={k.status === 'suspended' ? btnSuccessSm : btnWarnSm} onClick={() => (() => { setAdminKocs(prev => prev.map(x => x.id === k.id ? { ...x, status: x.status === 'suspended' ? 'active' : 'suspended' } : x)); showToast(`${k.status === 'suspended' ? 'Đã mở khóa' : 'Đã tạm khóa'} KOC ${k.name}`); })()}>
                           {k.status === 'suspended' ? 'Mở khóa' : 'Tạm khóa'}
                         </button>
-                        <button style={btnSm} onClick={() => console.log('ACTION: Xem chi tiết KOC', k.id)}>Xem chi tiết</button>
+                        <button style={btnSm} onClick={() => showToast(`Đang xem chi tiết KOC ${k.name}`)}>Xem chi tiết</button>
                       </div>
                     </div>
                   </div>
@@ -749,22 +746,22 @@ export default function Admin() {
 
       /* ====== NEW: VENDOR MANAGEMENT ====== */
       case 'vendor': {
-        const filteredVendors = vendorsData.filter(v => {
+        const filteredVendors = adminVendors.filter(v => {
           const matchSearch = !vendorSearch || v.shopName.toLowerCase().includes(vendorSearch.toLowerCase()) || v.owner.toLowerCase().includes(vendorSearch.toLowerCase()) || v.id.toLowerCase().includes(vendorSearch.toLowerCase());
           const matchStatus = vendorStatusFilter === 'all' || v.status === vendorStatusFilter;
           return matchSearch && matchStatus;
         });
         const vendorStats = [
-          { label: 'Total Vendors', value: String(vendorsData.length), color: 'var(--c4-500)' },
-          { label: 'Pending Review', value: String(vendorsData.filter(v => v.status === 'pending').length), color: 'var(--gold-400)' },
-          { label: 'Active', value: String(vendorsData.filter(v => v.status === 'active').length), color: 'var(--c5-500)' },
+          { label: 'Total Vendors', value: String(adminVendors.length), color: 'var(--c4-500)' },
+          { label: 'Pending Review', value: String(adminVendors.filter(v => v.status === 'pending').length), color: 'var(--gold-400)' },
+          { label: 'Active', value: String(adminVendors.filter(v => v.status === 'active').length), color: 'var(--c5-500)' },
           { label: 'GMV tổng', value: vendorsData.reduce((s, v) => s + parseInt(v.revenue), 0) + 'M₫', color: 'var(--c6-500)' },
         ];
         return (
           <>
             <div className="flex" style={{ justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
               <h2 style={{ fontWeight: 700, fontSize: '1.1rem' }}>Quản Lý Vendor</h2>
-              <button style={btnPrimSm} onClick={() => console.log('ACTION: Thêm vendor mới')}>+ Thêm Vendor</button>
+              <button style={btnPrimSm} onClick={() => showToast('Thêm vendor mới')}>+ Thêm Vendor</button>
             </div>
             {/* Stats */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
@@ -809,17 +806,17 @@ export default function Admin() {
                           <div className="flex gap-4" style={{ flexWrap: 'wrap' }}>
                             {v.status === 'pending' && (
                               <>
-                                <button style={btnSuccessSm} onClick={() => console.log('ACTION: Duyệt vendor', v.id)}>Duyệt</button>
-                                <button style={btnWarnSm} onClick={() => console.log('ACTION: Từ chối vendor', v.id)}>Từ chối</button>
+                                <button style={btnSuccessSm} onClick={() => (() => { setAdminVendors(prev => prev.map(x => x.id === v.id ? { ...x, status: 'active' } : x)); showToast(`Đã duyệt vendor ${v.shopName}`); })()}>Duyệt</button>
+                                <button style={btnWarnSm} onClick={() => (() => { setAdminVendors(prev => prev.map(x => x.id === v.id ? { ...x, status: 'rejected' } : x)); showToast(`Đã từ chối vendor ${v.shopName}`); })()}>Từ chối</button>
                               </>
                             )}
                             {v.status === 'active' && (
-                              <button style={btnWarnSm} onClick={() => console.log('ACTION: Tạm khóa vendor', v.id)}>Tạm khóa</button>
+                              <button style={btnWarnSm} onClick={() => (() => { setAdminVendors(prev => prev.map(x => x.id === v.id ? { ...x, status: 'suspended' } : x)); showToast(`Đã tạm khóa vendor ${v.shopName}`); })()}>Tạm khóa</button>
                             )}
                             {v.status === 'suspended' && (
-                              <button style={btnSuccessSm} onClick={() => console.log('ACTION: Mở khóa vendor', v.id)}>Mở khóa</button>
+                              <button style={btnSuccessSm} onClick={() => (() => { setAdminVendors(prev => prev.map(x => x.id === v.id ? { ...x, status: 'active' } : x)); showToast(`Đã mở khóa vendor ${v.shopName}`); })()}>Mở khóa</button>
                             )}
-                            <button style={btnSm} onClick={() => console.log('ACTION: Xem chi tiết vendor', v.id)}>Xem chi tiết</button>
+                            <button style={btnSm} onClick={() => showToast(`Đang xem chi tiết vendor ${v.shopName}`)}>Xem chi tiết</button>
                           </div>
                         </td>
                       </tr>
@@ -894,7 +891,7 @@ export default function Admin() {
                     style={btnPrimSm}
                     onClick={() => {
                       const channels = Object.entries(ntfChannels).filter(([, v]) => v).map(([k]) => k).join(', ');
-                      console.log('ACTION: Gửi thông báo', { title: ntfTitle, message: ntfMessage, target: ntfTarget, channels });
+                      showToast(`Đã gửi thông báo '${ntfTitle}' đến ${ntfTarget}`);
                     }}
                   >
                     Gửi ngay
@@ -955,8 +952,8 @@ export default function Admin() {
                     </div>
                     {a.status === 'pending' && (
                       <div className="flex gap-8">
-                        <button className="btn btn-primary btn-sm" onClick={() => console.log('ACTION: Duyệt', a.id)}>Duyệt</button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => console.log('ACTION: Từ chối', a.id)}>Từ chối</button>
+                        <button className="btn btn-primary btn-sm" onClick={() => showToast(`Đã duyệt xác minh #${a.id}`)}>Duyệt</button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => showToast(`Đã từ chối xác minh #${a.id}`)}>Từ chối</button>
                       </div>
                     )}
                   </div>
@@ -1381,6 +1378,9 @@ export default function Admin() {
         );
       }
 
+      case 'kyc':
+        return <AdminKYC showToast={showToast} />;
+
       default: {
         const currentTab = sidebarTabs.find(t => t.key === activeTab);
         const tabName = currentTab?.label || activeTab;
@@ -1559,9 +1559,9 @@ export default function Admin() {
             ],
           },
           aiAgents: {
-            title: '111 AI Agents Dashboard',
+            title: '333 AI Agents Dashboard',
             stats: [
-              { label: 'Agents online', value: '108/111', delta: '97.3%', color: 'var(--c4-500)' },
+              { label: 'Agents online', value: '325/333', delta: '97.3%', color: 'var(--c4-500)' },
               { label: 'Tasks hôm nay', value: '2,345', delta: '+18%', color: 'var(--c6-500)' },
               { label: 'Tokens used', value: '4.5M', delta: 'Claude API', color: 'var(--c5-500)' },
               { label: 'TB response', value: '1.2s', delta: '-0.3s', color: 'var(--gold-400)' },
@@ -1636,6 +1636,127 @@ export default function Admin() {
               ['Văn Hoàng', 'Nguyễn A', '3', '2', '1.2M₫', 'review'],
             ],
           },
+          reports: {
+            title: 'Báo Cáo Tổng Hợp',
+            stats: [
+              { label: 'Báo cáo tháng', value: '12', delta: 'Auto-gen', color: 'var(--c4-500)' },
+              { label: 'Báo cáo tuần', value: '52', delta: 'Năm 2026', color: 'var(--c6-500)' },
+              { label: 'Download tháng', value: '234', delta: 'Admin team', color: 'var(--c5-500)' },
+              { label: 'Scheduled', value: '5', delta: 'Auto-email', color: 'var(--gold-400)' },
+            ],
+            tableHeaders: ['Báo cáo', 'Loại', 'Kỳ', 'Tạo lúc', 'Kích thước', 'Trạng thái'],
+            tableRows: [
+              ['Doanh thu tháng 3/2026', 'Revenue', 'Tháng', '2026-03-28', '2.4MB', 'active'],
+              ['KOC Performance Q1', 'KOC', 'Quý', '2026-03-25', '5.1MB', 'active'],
+              ['Commission Audit', 'Finance', 'Tháng', '2026-03-20', '1.8MB', 'active'],
+            ],
+          },
+          feed: {
+            title: 'Social Feed Management',
+            stats: [
+              { label: 'Bài đăng hôm nay', value: '456', delta: '+12%', color: 'var(--c6-500)' },
+              { label: 'Tổng engagement', value: '23.4K', delta: 'Likes+Comments', color: 'var(--c4-500)' },
+              { label: 'Video views', value: '89K', delta: 'Hôm nay', color: 'var(--c5-500)' },
+              { label: 'Trending hashtags', value: '15', delta: 'Đang hot', color: 'var(--gold-400)' },
+            ],
+            tableHeaders: ['ID', 'KOC', 'Loại', 'Engagement', 'Views', 'Trạng thái'],
+            tableRows: [
+              ['POST-2345', 'Minh Hương', 'Video review', '1,234', '12.3K', 'active'],
+              ['POST-2344', 'Thảo Linh', 'Ảnh sản phẩm', '892', '5.6K', 'active'],
+              ['POST-2343', 'user_abc', 'Spam content', '2', '34', 'pending'],
+            ],
+          },
+          academy: {
+            title: 'KOC Academy Management',
+            stats: [
+              { label: 'Tổng khóa học', value: '24', delta: '6 mới tháng này', color: 'var(--c6-500)' },
+              { label: 'Học viên', value: '3,456', delta: '+234 tuần', color: 'var(--c4-500)' },
+              { label: 'Hoàn thành', value: '1,892', delta: '54.7%', color: 'var(--c5-500)' },
+              { label: 'Đánh giá TB', value: '4.7⭐', delta: 'Rất tốt', color: 'var(--gold-400)' },
+            ],
+            tableHeaders: ['Khóa học', 'Giảng viên', 'Học viên', 'Hoàn thành', 'Đánh giá', 'Trạng thái'],
+            tableRows: [
+              ['KOC 101: Bắt đầu', 'Minh Hương', '1,234', '89%', '4.8⭐', 'active'],
+              ['Content Marketing Pro', 'Thảo Linh', '567', '72%', '4.6⭐', 'active'],
+              ['Live Commerce Mastery', 'Ngọc Anh', '234', '45%', '4.9⭐', 'active'],
+            ],
+          },
+          reputation: {
+            title: 'Reputation NFT System',
+            stats: [
+              { label: 'NFT đã mint', value: '8,234', delta: 'Soulbound', color: 'var(--c7-500)' },
+              { label: 'TB Trust Score', value: '78.3', delta: '+2.1 tháng', color: 'var(--c4-500)' },
+              { label: 'Badges issued', value: '12,456', delta: '15 loại', color: 'var(--c6-500)' },
+              { label: 'On-chain proofs', value: '45K', delta: 'Polygon', color: 'var(--gold-400)' },
+            ],
+            tableHeaders: ['User', 'Trust Score', 'Level', 'Badges', 'NFT ID', 'Trạng thái'],
+            tableRows: [
+              ['Minh Hương', '92/100', 'Diamond', '12', '#REP-001', 'active'],
+              ['Thảo Linh', '88/100', 'Gold', '9', '#REP-002', 'active'],
+              ['Ngọc Anh', '85/100', 'Gold', '7', '#REP-003', 'active'],
+            ],
+          },
+          aiCaption: {
+            title: 'AI Caption & Hashtag Generator',
+            stats: [
+              { label: 'Captions hôm nay', value: '1,234', delta: '+23%', color: 'var(--c6-500)' },
+              { label: 'Hashtags generated', value: '5,678', delta: 'Auto', color: 'var(--c4-500)' },
+              { label: 'Avg quality score', value: '8.7/10', delta: '+0.3', color: 'var(--c5-500)' },
+              { label: 'Languages', value: '5', delta: 'vi/en/zh/hi/th', color: 'var(--gold-400)' },
+            ],
+            tableHeaders: ['Thời gian', 'KOC', 'Product', 'Caption (preview)', 'Score', 'Trạng thái'],
+            tableRows: [
+              ['16:30', 'Minh Hương', 'Serum Vitamin C', 'Da sáng mịn sau 7 ngày...', '9.2', 'active'],
+              ['16:25', 'Thảo Linh', 'Trà Ô Long', 'Trà ngon từ đỉnh núi...', '8.8', 'active'],
+            ],
+          },
+          aiScheduler: {
+            title: 'Content Calendar & Scheduler',
+            stats: [
+              { label: 'Scheduled posts', value: '89', delta: 'Tuần này', color: 'var(--c6-500)' },
+              { label: 'Auto-published', value: '234', delta: 'Tháng này', color: 'var(--c4-500)' },
+              { label: 'Best time AI', value: '19:00-21:00', delta: 'Peak engagement', color: 'var(--c5-500)' },
+              { label: 'Platforms', value: '8', delta: 'Multi-channel', color: 'var(--gold-400)' },
+            ],
+            tableHeaders: ['Post', 'KOC', 'Platform', 'Scheduled', 'Trạng thái', 'Engagement dự kiến'],
+            tableRows: [
+              ['Review Serum mới', 'Minh Hương', 'TikTok + IG', '2026-03-29 19:00', 'pending', '~5K views'],
+              ['Unbox Trà Premium', 'Thảo Linh', 'YouTube + FB', '2026-03-29 20:30', 'pending', '~3K views'],
+            ],
+          },
+          leaderboard: {
+            title: 'Leaderboard & Rankings',
+            stats: [
+              { label: 'Top KOC tháng', value: 'Minh Hương', delta: '45.2M₫ revenue', color: 'var(--gold-400)' },
+              { label: 'Top Vendor', value: 'WellKOC Origin', delta: '89.5M₫', color: 'var(--c4-500)' },
+              { label: 'Rising Star', value: 'Phương Thảo', delta: '+340% MoM', color: 'var(--c6-500)' },
+              { label: 'Total prizes', value: '12M₫', delta: 'Tháng này', color: 'var(--c5-500)' },
+            ],
+            tableHeaders: ['Rank', 'KOC', 'Revenue', 'Orders', 'CVR', 'Prize'],
+            tableRows: [
+              ['🥇 1', 'Minh Hương', '45.2M₫', '592', '4.8%', '5M₫'],
+              ['🥈 2', 'Thảo Linh', '38.7M₫', '401', '4.5%', '3M₫'],
+              ['🥉 3', 'Ngọc Anh', '32.1M₫', '356', '4.2%', '2M₫'],
+              ['4', 'Văn Hoàng', '18.9M₫', '198', '3.8%', '1M₫'],
+              ['5', 'Phương Thảo', '12.4M₫', '145', '3.5%', '1M₫'],
+            ],
+          },
+          achievements: {
+            title: 'Achievements & Badges System',
+            stats: [
+              { label: 'Loại badges', value: '15', delta: '5 mới Q1', color: 'var(--c7-500)' },
+              { label: 'Badges issued', value: '12,456', delta: 'Tổng', color: 'var(--c4-500)' },
+              { label: 'Users có badge', value: '4,567', delta: '35.5%', color: 'var(--c6-500)' },
+              { label: 'Rare badges', value: '234', delta: '<1% users', color: 'var(--gold-400)' },
+            ],
+            tableHeaders: ['Badge', 'Tên', 'Điều kiện', 'Đã cấp', 'Rarity', 'Trạng thái'],
+            tableRows: [
+              ['🏆', 'Top KOC', 'Revenue > 10M₫/tháng', '45', '0.35%', 'active'],
+              ['⭐', 'First Sale', 'Đơn hàng đầu tiên', '8,234', '64%', 'active'],
+              ['🔥', 'Streak Master', 'Check-in 30 ngày liên tục', '123', '0.96%', 'active'],
+              ['💎', 'Diamond KOC', 'Level 10+ & Trust > 90', '12', '0.09%', 'active'],
+            ],
+          },
           logs: {
             title: 'Audit Logs',
             stats: [
@@ -1656,7 +1777,8 @@ export default function Admin() {
         const section = crmSections[activeTab];
         if (section) {
           const currentCrmSearch = crmSearch[activeTab] || '';
-          const statusColIdx = section.tableHeaders.findIndex(h => h.toLowerCase().includes('trạng thái') || h.toLowerCase() === 'status');
+          const statusColIdx = section.tableHeaders.findIndex(h => h.toLowerCase().includes('trạng thái') || h.toLowerCase() === 'status' || h.toLowerCase() === 'action');
+          const actionColIdx = section.tableHeaders.findIndex(h => h.toLowerCase().includes('hành động') || h.toLowerCase() === 'action');
 
           const filteredRows = section.tableRows.filter(row => {
             if (!currentCrmSearch) return true;
@@ -1667,7 +1789,14 @@ export default function Admin() {
             <>
               <div className="flex" style={{ justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
                 <h2 style={{ fontWeight: 700, fontSize: '1.1rem' }}>{section.title}</h2>
-                <button style={btnSm} onClick={() => console.log('ACTION: Xuất Excel', activeTab)}>Xuất Excel</button>
+                <button style={btnSm} onClick={() => {
+                  const csv = [section.tableHeaders.join(','), ...section.tableRows.map(r => r.join(','))].join('\n');
+                  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a'); a.href = url; a.download = `wellkoc-${activeTab}-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+                  URL.revokeObjectURL(url);
+                  showToast(`Đã tải xuống file CSV cho ${section.title}`);
+                }}>Xuất Excel</button>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
                 {section.stats.map((s, i) => (
@@ -1702,23 +1831,29 @@ export default function Admin() {
                     </thead>
                     <tbody>
                       {filteredRows.map((row, ri) => {
-                        const isPending = statusColIdx >= 0 && row[statusColIdx] === 'pending';
+                        const overrideKey = `${activeTab}-${ri}`;
+                        const overriddenStatus = rowOverrides[overrideKey];
+                        const effectiveStatus = overriddenStatus || (statusColIdx >= 0 ? row[statusColIdx] : '');
+                        const isPending = effectiveStatus === 'pending' || effectiveStatus === 'Review';
                         return (
                           <tr key={ri} style={{ borderBottom: '1px solid var(--border)' }}>
-                            {row.map((cell, ci) => (
-                              <td key={ci} style={{ ...tdStyle, fontWeight: ci === 0 ? 600 : 400, color: ci === 0 ? 'var(--text-1)' : 'var(--text-2)' }}>
-                                {statusLabel[cell] ? <span className={`badge ${statusBadge[cell] || 'badge-c6'}`}>{statusLabel[cell]}</span> : cell}
-                              </td>
-                            ))}
+                            {row.map((cell, ci) => {
+                              const displayCell = (ci === statusColIdx && overriddenStatus) ? overriddenStatus : cell;
+                              return (
+                                <td key={ci} style={{ ...tdStyle, fontWeight: ci === 0 ? 600 : 400, color: ci === 0 ? 'var(--text-1)' : 'var(--text-2)' }}>
+                                  {statusLabel[displayCell] ? <span className={`badge ${statusBadge[displayCell] || 'badge-c6'}`}>{statusLabel[displayCell]}</span> : displayCell}
+                                </td>
+                              );
+                            })}
                             <td style={tdStyle}>
                               <div className="flex gap-4" style={{ flexWrap: 'wrap' }}>
                                 {isPending && (
                                   <>
-                                    <button style={btnSuccessSm} onClick={() => console.log('ACTION: Duyệt', activeTab, row[0])}>Duyệt</button>
-                                    <button style={btnDangerSm} onClick={() => console.log('ACTION: Từ chối', activeTab, row[0])}>Từ chối</button>
+                                    <button style={btnSuccessSm} onClick={() => { overrideRow(activeTab, ri, 'approved'); showToast(`✅ Đã duyệt ${row[0]}`); }}>Duyệt</button>
+                                    <button style={btnDangerSm} onClick={() => { overrideRow(activeTab, ri, 'rejected'); showToast(`❌ Đã từ chối ${row[0]}`); }}>Từ chối</button>
                                   </>
                                 )}
-                                <button style={btnSm} onClick={() => console.log('ACTION: Xem chi tiết', activeTab, row[0])}>Xem</button>
+                                <button style={btnSm} onClick={() => { setDetailRow({ tab: activeTab, row: [...row], headers: section.tableHeaders, title: section.title, ri }); setEditingField({}); }}>Xem</button>
                               </div>
                             </td>
                           </tr>
@@ -1728,6 +1863,281 @@ export default function Admin() {
                   </table>
                 </div>
               </div>
+
+              {/* ═══ DETAIL PANEL — read-only drill-down ═══ */}
+              {detailRow && detailRow.tab === activeTab && (() => {
+                const effectiveStatus = rowOverrides[`${activeTab}-${detailRow.ri}`] || (statusColIdx >= 0 ? detailRow.row[statusColIdx] : '');
+                const isPendingDetail = effectiveStatus === 'pending' || effectiveStatus === 'Review';
+                return (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', justifyContent: 'flex-end' }} onClick={() => setDetailRow(null)}>
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)' }} />
+                  <div style={{ position: 'relative', width: '55%', maxWidth: 680, minWidth: 380, height: '100%', background: 'var(--bg-1)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', animation: 'slideInRight .25s ease' }} onClick={e => e.stopPropagation()}>
+                    {/* Header */}
+                    <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <h3 style={{ fontWeight: 700, fontSize: '1rem', margin: 0 }}>Chi tiết: {detailRow.row[0]}</h3>
+                          <div style={{ fontSize: '.75rem', color: 'var(--text-3)', marginTop: 4 }}>{detailRow.title}</div>
+                        </div>
+                        <button onClick={() => setDetailRow(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-3)' }}>✕</button>
+                      </div>
+                    </div>
+
+                    {/* Content — read-only info cards */}
+                    <div style={{ flex: 1, overflowY: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {/* Summary grid: show key fields as read-only cards */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                        {detailRow.headers.map((header, ci) => {
+                          const cellValue = detailRow.row[ci];
+                          const isStatus = statusLabel[cellValue] !== undefined;
+                          const overriddenStatus = rowOverrides[`${activeTab}-${detailRow.ri}`];
+                          const displayValue = (ci === statusColIdx && overriddenStatus) ? overriddenStatus : cellValue;
+                          return (
+                            <div key={ci} style={{ padding: '12px 14px', borderRadius: 8, background: 'var(--bg-2)', border: '1px solid var(--border)' }}>
+                              <div style={{ fontSize: '.65rem', color: 'var(--text-4)', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 700, marginBottom: 4 }}>{header}</div>
+                              {(isStatus || statusLabel[displayValue]) ? (
+                                <span className={`badge ${statusBadge[displayValue] || 'badge-c6'}`} style={{ fontSize: '.72rem' }}>{statusLabel[displayValue] || displayValue}</span>
+                              ) : (
+                                <div style={{ fontSize: '.85rem', fontWeight: 600, color: 'var(--text-1)' }}>{displayValue}</div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Contextual related data based on tab */}
+                      {activeTab === 'analytics' && (() => {
+                        const metric = detailRow.row[0];
+                        if (metric === 'Doanh thu') return (
+                          <div style={{ marginTop: 8 }}>
+                            <h4 style={{ fontSize: '.82rem', fontWeight: 700, marginBottom: 8 }}>Chi tiết doanh thu theo sản phẩm</h4>
+                            <div style={{ borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead><tr style={{ background: 'var(--bg-0)' }}>
+                                  {['Sản phẩm', 'Vendor', 'Doanh số', 'Giá'].map(h => <th key={h} style={{ padding: '8px 10px', textAlign: 'left' as const, fontWeight: 700, fontSize: '.62rem', color: 'var(--text-3)', letterSpacing: '.05em', textTransform: 'uppercase' as const }}>{h}</th>)}
+                                </tr></thead>
+                                <tbody>
+                                  {adminProducts.filter(p => p.sales > 0).sort((a, b) => b.sales - a.sales).map(p => (
+                                    <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem', fontWeight: 600 }}>{p.name}</td>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem', color: 'var(--text-3)' }}>{p.vendor}</td>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem', fontWeight: 700, color: 'var(--c4-500)' }}>{p.sales.toLocaleString()}</td>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem' }}>{p.price}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                              {adminVendors.map(v => (
+                                <div key={v.id} style={{ padding: 10, borderRadius: 8, background: 'var(--bg-2)', border: '1px solid var(--border)', textAlign: 'center' }}>
+                                  <div style={{ fontSize: '.68rem', color: 'var(--text-3)' }}>{v.shopName}</div>
+                                  <div style={{ fontSize: '.88rem', fontWeight: 800, color: 'var(--c4-500)', marginTop: 2 }}>{v.revenue}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                        if (metric === 'Đơn hàng') return (
+                          <div style={{ marginTop: 8 }}>
+                            <h4 style={{ fontSize: '.82rem', fontWeight: 700, marginBottom: 8 }}>Pipeline đơn hàng</h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
+                              {[
+                                { label: 'Chờ xác nhận', count: adminOrders.filter(o => o.status === 'pending').length, color: '#f59e0b' },
+                                { label: 'Đang xử lý', count: adminOrders.filter(o => ['confirmed', 'packing', 'shipping'].includes(o.status)).length, color: 'var(--c6-500)' },
+                                { label: 'Hoàn thành', count: adminOrders.filter(o => o.status === 'delivered').length, color: 'var(--c4-500)' },
+                              ].map((s, i) => (
+                                <div key={i} style={{ padding: 10, borderRadius: 8, background: 'var(--bg-2)', border: '1px solid var(--border)', textAlign: 'center' }}>
+                                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: s.color }}>{s.count}</div>
+                                  <div style={{ fontSize: '.65rem', color: 'var(--text-3)' }}>{s.label}</div>
+                                </div>
+                              ))}
+                            </div>
+                            <div style={{ borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead><tr style={{ background: 'var(--bg-0)' }}>
+                                  {['Mã', 'Khách hàng', 'Sản phẩm', 'Số tiền', 'Trạng thái'].map(h => <th key={h} style={{ padding: '8px 10px', textAlign: 'left' as const, fontWeight: 700, fontSize: '.62rem', color: 'var(--text-3)', letterSpacing: '.05em', textTransform: 'uppercase' as const }}>{h}</th>)}
+                                </tr></thead>
+                                <tbody>
+                                  {adminOrders.map(o => (
+                                    <tr key={o.id} style={{ borderBottom: '1px solid var(--border)', background: o.status === 'cancelled' ? 'rgba(239,68,68,.06)' : 'transparent' }}>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem', fontWeight: 600 }}>{o.id}</td>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem' }}>{o.customer}</td>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem' }}>{o.product}</td>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem', fontWeight: 700, color: 'var(--c4-500)' }}>{o.amount}</td>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem' }}><span className={`badge ${statusBadge[o.status] || 'badge-c6'}`} style={{ fontSize: '.6rem' }}>{statusLabel[o.status] || o.status}</span></td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        );
+                        if (metric === 'Người dùng mới') return (
+                          <div style={{ marginTop: 8 }}>
+                            <h4 style={{ fontSize: '.82rem', fontWeight: 700, marginBottom: 8 }}>Phân loại người dùng mới</h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
+                              {[
+                                { label: 'Buyer', count: adminUsers.filter(u => u.role === 'user').length, color: 'var(--c4-500)' },
+                                { label: 'KOC', count: adminUsers.filter(u => u.role === 'koc').length, color: 'var(--c6-500)' },
+                                { label: 'Vendor', count: adminUsers.filter(u => u.role === 'vendor').length, color: '#f59e0b' },
+                              ].map((r, i) => (
+                                <div key={i} style={{ padding: 10, borderRadius: 8, background: 'var(--bg-2)', border: '1px solid var(--border)', textAlign: 'center' }}>
+                                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: r.color }}>{r.count}</div>
+                                  <div style={{ fontSize: '.65rem', color: 'var(--text-3)' }}>{r.label}</div>
+                                </div>
+                              ))}
+                            </div>
+                            <div style={{ borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead><tr style={{ background: 'var(--bg-0)' }}>
+                                  {['ID', 'Tên', 'Vai trò', 'Đơn hàng', 'Trạng thái'].map(h => <th key={h} style={{ padding: '8px 10px', textAlign: 'left' as const, fontWeight: 700, fontSize: '.62rem', color: 'var(--text-3)', letterSpacing: '.05em', textTransform: 'uppercase' as const }}>{h}</th>)}
+                                </tr></thead>
+                                <tbody>
+                                  {adminUsers.map(u => (
+                                    <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem', fontWeight: 600 }}>{u.id}</td>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem', fontWeight: 600 }}>{u.name}</td>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem' }}><span className={`badge badge-${u.role === 'koc' ? 'c6' : u.role === 'vendor' ? 'gold' : 'c4'}`} style={{ fontSize: '.58rem' }}>{u.role}</span></td>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem', fontWeight: 700, color: 'var(--c4-500)' }}>{u.orders}</td>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem' }}><span className={`badge ${statusBadge[u.status] || 'badge-c6'}`} style={{ fontSize: '.6rem' }}>{statusLabel[u.status]}</span></td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        );
+                        return null;
+                      })()}
+
+                      {/* For orders tab: show related product info */}
+                      {(activeTab === 'orders' || activeTab === 'returns') && (() => {
+                        const productName = detailRow.row[detailRow.headers.indexOf('Sản phẩm')] || detailRow.row[detailRow.headers.indexOf('Product')] || '';
+                        const customerName = detailRow.row[detailRow.headers.indexOf('Khách hàng')] || detailRow.row[detailRow.headers.indexOf('Customer')] || '';
+                        const matchedProduct = adminProducts.find(p => productName && p.name.includes(productName));
+                        const matchedUser = adminUsers.find(u => customerName && u.name.includes(customerName));
+                        return (
+                          <div style={{ marginTop: 8 }}>
+                            {matchedProduct && (
+                              <>
+                                <h4 style={{ fontSize: '.82rem', fontWeight: 700, marginBottom: 8 }}>Thông tin sản phẩm</h4>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 12 }}>
+                                  <div style={{ padding: 10, borderRadius: 8, background: 'var(--bg-2)', border: '1px solid var(--border)' }}>
+                                    <div style={{ fontSize: '.65rem', color: 'var(--text-4)', textTransform: 'uppercase', fontWeight: 700 }}>Vendor</div>
+                                    <div style={{ fontSize: '.82rem', fontWeight: 600, marginTop: 2 }}>{matchedProduct.vendor}</div>
+                                  </div>
+                                  <div style={{ padding: 10, borderRadius: 8, background: 'var(--bg-2)', border: '1px solid var(--border)' }}>
+                                    <div style={{ fontSize: '.65rem', color: 'var(--text-4)', textTransform: 'uppercase', fontWeight: 700 }}>Tổng đã bán</div>
+                                    <div style={{ fontSize: '.82rem', fontWeight: 700, color: 'var(--c4-500)', marginTop: 2 }}>{matchedProduct.sales.toLocaleString()}</div>
+                                  </div>
+                                  <div style={{ padding: 10, borderRadius: 8, background: 'var(--bg-2)', border: '1px solid var(--border)' }}>
+                                    <div style={{ fontSize: '.65rem', color: 'var(--text-4)', textTransform: 'uppercase', fontWeight: 700 }}>Giá</div>
+                                    <div style={{ fontSize: '.82rem', fontWeight: 600, marginTop: 2 }}>{matchedProduct.price}</div>
+                                  </div>
+                                  <div style={{ padding: 10, borderRadius: 8, background: 'var(--bg-2)', border: '1px solid var(--border)' }}>
+                                    <div style={{ fontSize: '.65rem', color: 'var(--text-4)', textTransform: 'uppercase', fontWeight: 700 }}>DPP</div>
+                                    <div style={{ fontSize: '.82rem', fontWeight: 600, marginTop: 2, color: matchedProduct.dpp ? 'var(--c4-500)' : '#f59e0b' }}>{matchedProduct.dpp ? 'Verified' : 'Chưa có'}</div>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                            {matchedUser && (
+                              <>
+                                <h4 style={{ fontSize: '.82rem', fontWeight: 700, marginBottom: 8 }}>Thông tin khách hàng</h4>
+                                <div style={{ padding: 12, borderRadius: 8, background: 'var(--bg-2)', border: '1px solid var(--border)' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                      <div style={{ fontWeight: 700, fontSize: '.85rem' }}>{matchedUser.name}</div>
+                                      <div style={{ fontSize: '.7rem', color: 'var(--text-3)' }}>{matchedUser.email} · {matchedUser.id}</div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                      <div style={{ fontWeight: 700, color: 'var(--c4-500)', fontSize: '.85rem' }}>{matchedUser.orders} đơn</div>
+                                      <span className={`badge badge-${matchedUser.role === 'koc' ? 'c6' : 'c4'}`} style={{ fontSize: '.55rem' }}>{matchedUser.role}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* For commission tab: show KOC info */}
+                      {activeTab === 'commission' && (() => {
+                        const kocName = detailRow.row[0];
+                        const matchedKoc = adminKocs.find(k => k.name === kocName);
+                        return matchedKoc ? (
+                          <div style={{ marginTop: 8 }}>
+                            <h4 style={{ fontSize: '.82rem', fontWeight: 700, marginBottom: 8 }}>Thông tin KOC</h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                              <div style={{ padding: 10, borderRadius: 8, background: 'var(--bg-2)', border: '1px solid var(--border)' }}>
+                                <div style={{ fontSize: '.65rem', color: 'var(--text-4)', textTransform: 'uppercase', fontWeight: 700 }}>Tier</div>
+                                <div style={{ fontSize: '.82rem', fontWeight: 600, marginTop: 2 }}>{matchedKoc.tier}</div>
+                              </div>
+                              <div style={{ padding: 10, borderRadius: 8, background: 'var(--bg-2)', border: '1px solid var(--border)' }}>
+                                <div style={{ fontSize: '.65rem', color: 'var(--text-4)', textTransform: 'uppercase', fontWeight: 700 }}>Level</div>
+                                <div style={{ fontSize: '.82rem', fontWeight: 700, color: 'var(--c6-500)', marginTop: 2 }}>Lv.{matchedKoc.level}</div>
+                              </div>
+                              <div style={{ padding: 10, borderRadius: 8, background: 'var(--bg-2)', border: '1px solid var(--border)' }}>
+                                <div style={{ fontSize: '.65rem', color: 'var(--text-4)', textTransform: 'uppercase', fontWeight: 700 }}>Tổng doanh số</div>
+                                <div style={{ fontSize: '.82rem', fontWeight: 800, color: 'var(--c4-500)', marginTop: 2 }}>{matchedKoc.sales}</div>
+                              </div>
+                              <div style={{ padding: 10, borderRadius: 8, background: 'var(--bg-2)', border: '1px solid var(--border)' }}>
+                                <div style={{ fontSize: '.65rem', color: 'var(--text-4)', textTransform: 'uppercase', fontWeight: 700 }}>Trust Score</div>
+                                <div style={{ fontSize: '.82rem', fontWeight: 700, marginTop: 2, color: matchedKoc.trustScore >= 80 ? 'var(--c4-500)' : '#f59e0b' }}>{matchedKoc.trustScore}/100</div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
+
+                      {/* For KOC/vendor related tabs: show relevant stats */}
+                      {(activeTab === 'koc' || activeTab === 'leaderboard') && (() => {
+                        const kocName = detailRow.row[detailRow.headers.indexOf('KOC')] || detailRow.row[detailRow.headers.indexOf('Name')] || detailRow.row[0];
+                        const kocCommissions = commissionData.filter(c => c.koc === kocName);
+                        return kocCommissions.length > 0 ? (
+                          <div style={{ marginTop: 8 }}>
+                            <h4 style={{ fontSize: '.82rem', fontWeight: 700, marginBottom: 8 }}>Lịch sử hoa hồng</h4>
+                            <div style={{ borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead><tr style={{ background: 'var(--bg-0)' }}>
+                                  {['Số tiền', 'Đơn hàng', 'Ngày', 'Trạng thái'].map(h => <th key={h} style={{ padding: '8px 10px', textAlign: 'left' as const, fontWeight: 700, fontSize: '.62rem', color: 'var(--text-3)', letterSpacing: '.05em', textTransform: 'uppercase' as const }}>{h}</th>)}
+                                </tr></thead>
+                                <tbody>
+                                  {kocCommissions.map((c, i) => (
+                                    <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem', fontWeight: 700, color: 'var(--c4-500)' }}>{c.amount}</td>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem' }}>{c.orders}</td>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem', color: 'var(--text-3)' }}>{c.date}</td>
+                                      <td style={{ padding: '8px 10px', fontSize: '.75rem' }}><span className={`badge ${statusBadge[c.status] || 'badge-c6'}`} style={{ fontSize: '.6rem' }}>{statusLabel[c.status] || c.status}</span></td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
+
+                      {/* Action buttons for pending items */}
+                      {isPendingDetail && !rowOverrides[`${activeTab}-${detailRow.ri}`] && (
+                        <div style={{ display: 'flex', gap: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                          <button style={{ ...btnSuccessSm, padding: '10px 20px', fontSize: '.82rem' }} onClick={() => { overrideRow(activeTab, detailRow.ri, 'approved'); showToast(`Approved ${detailRow.row[0]}`); setDetailRow(null); }}>Duyệt</button>
+                          <button style={{ ...btnDangerSm, padding: '10px 20px', fontSize: '.82rem' }} onClick={() => { overrideRow(activeTab, detailRow.ri, 'rejected'); showToast(`Rejected ${detailRow.row[0]}`); setDetailRow(null); }}>Từ chối</button>
+                        </div>
+                      )}
+
+                      {/* Close */}
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
+                        <button style={{ ...btnSm, padding: '10px 20px', fontSize: '.82rem' }} onClick={() => setDetailRow(null)}>Đóng</button>
+                      </div>
+                    </div>
+                  </div>
+                  <style>{`@keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }`}</style>
+                </div>
+                );
+              })()}
             </>
           );
         }
@@ -1842,6 +2252,7 @@ export default function Admin() {
 
           {/* Content */}
           <div className="dash-content">
+            {adminToast && <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, padding: '14px 24px', borderRadius: 12, fontSize: '.85rem', fontWeight: 600, background: 'var(--c4-500)', color: '#fff', boxShadow: '0 8px 32px rgba(0,0,0,.3)', maxWidth: 400, animation: 'fadeIn .3s ease' }}>✅ {adminToast}</div>}
             {renderContent()}
           </div>
         </div>

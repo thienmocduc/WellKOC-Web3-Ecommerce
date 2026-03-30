@@ -2,18 +2,45 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@hooks/useAuth';
 
-/* ── Sidebar ─────────────────────────────────────── */
-const sidebarItems = [
-  { key: 'overview', icon: '📊', label: 'Tổng quan' },
-  { key: 'products', icon: '📦', label: 'Sản phẩm' },
-  { key: 'orders', icon: '🛒', label: 'Đơn hàng' },
-  { key: 'koc', icon: '🌟', label: 'KOC Network' },
-  { key: 'dpp', icon: '🔐', label: 'DPP Management' },
-  { key: 'commission', icon: '💰', label: 'Commission Rules' },
-  { key: 'wallet', icon: '🔗', label: 'Ví blockchain' },
-  { key: 'analytics', icon: '📈', label: 'Analytics' },
-  { key: 'settings', icon: '⚙️', label: 'Cài đặt' },
+/* ── Sidebar (accordion groups like Admin) ────────── */
+interface VendorSidebarGroup {
+  key: string; label: string; color: string; icon: string;
+  items: { key: string; icon: string; label: string }[];
+}
+const vendorSidebarGroups: VendorSidebarGroup[] = [
+  {
+    key: 'shop', label: 'CỬA HÀNG', color: 'var(--c4-500)', icon: '🏪',
+    items: [
+      { key: 'overview', icon: '📊', label: 'Tổng quan' },
+      { key: 'products', icon: '📦', label: 'Sản phẩm' },
+      { key: 'orders', icon: '🛒', label: 'Đơn hàng' },
+      { key: 'analytics', icon: '📈', label: 'Analytics' },
+    ],
+  },
+  {
+    key: 'network', label: 'MẠNG LƯỚI', color: 'var(--c6-500)', icon: '🌐',
+    items: [
+      { key: 'koc', icon: '🌟', label: 'KOC Network' },
+      { key: 'commission', icon: '💰', label: 'Commission Rules' },
+    ],
+  },
+  {
+    key: 'web3', label: 'WEB3 & DPP', color: '#f59e0b', icon: '🔗',
+    items: [
+      { key: 'dpp', icon: '🔐', label: 'DPP Management' },
+      { key: 'wallet', icon: '💎', label: 'Ví blockchain' },
+    ],
+  },
+  {
+    key: 'account', label: 'TÀI KHOẢN', color: 'var(--c5-500)', icon: '👤',
+    items: [
+      { key: 'vendor_kyc', icon: '🛡️', label: 'Xác minh doanh nghiệp' },
+      { key: 'settings', icon: '⚙️', label: 'Cài đặt' },
+    ],
+  },
 ];
+/* Backward compat flat list */
+const sidebarItems = vendorSidebarGroups.flatMap(g => g.items);
 
 /* ── Initial Products ────────────────────────────── */
 const initialProducts = [
@@ -129,6 +156,12 @@ let nextDppTokenId = 1252;
 /* ── Component ───────────────────────────────────── */
 export default function Vendor() {
   const [activeNav, setActiveNav] = useState('overview');
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ shop: true, network: false, web3: false, account: false });
+  const toggleGroup = (key: string) => setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }));
+  const handleNavClick = (groupKey: string, itemKey: string) => {
+    setActiveNav(itemKey);
+    if (!openGroups[groupKey]) setOpenGroups(prev => ({ ...prev, [groupKey]: true }));
+  };
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const userName = user?.name || 'Vendor';
@@ -150,7 +183,7 @@ export default function Vendor() {
   const [productSearch, setProductSearch] = useState('');
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<number | null>(null);
-  const [newProduct, setNewProduct] = useState({ name: '', price: '', stock: '', commission: '' });
+  const [newProduct, setNewProduct] = useState({ name: '', price: '', stock: '', commission: '', description: '', category: '', origin: '', weight: '', sku: '', imageUrl: '' });
 
   // Orders
   const [orderList, setOrderList] = useState(initialOrders);
@@ -196,7 +229,7 @@ export default function Vendor() {
       hidden: false,
     };
     setProductList(prev => [...prev, p]);
-    setNewProduct({ name: '', price: '', stock: '', commission: '' });
+    setNewProduct({ name: '', price: '', stock: '', commission: '', description: '', category: '', origin: '', weight: '', sku: '', imageUrl: '' });
     setShowAddProduct(false);
     showToast(`Đã thêm sản phẩm "${p.name}"`);
   };
@@ -223,7 +256,7 @@ export default function Vendor() {
       return { ...p, name: newProduct.name || p.name, price: newProduct.price || p.price, commission: newProduct.commission || p.commission };
     }));
     setEditingProduct(null);
-    setNewProduct({ name: '', price: '', stock: '', commission: '' });
+    setNewProduct({ name: '', price: '', stock: '', commission: '', description: '', category: '', origin: '', weight: '', sku: '', imageUrl: '' });
     showToast('Đã cập nhật sản phẩm');
   };
 
@@ -407,19 +440,96 @@ export default function Vendor() {
               />
             </div>
 
-            {/* Add product form */}
+            {/* Add product form — full */}
             {showAddProduct && (
-              <div className="card" style={{ padding: 20, marginBottom: 16, borderLeft: '3px solid var(--c4-500)' }}>
-                <div className="label" style={{ marginBottom: 12 }}>THÊM SẢN PHẨM MỚI</div>
-                <div className="flex-col gap-10">
-                  <input placeholder="Tên sản phẩm *" value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-1)', color: 'var(--text-1)', fontSize: '.82rem' }} />
-                  <div className="flex gap-8">
-                    <input placeholder="Giá (VD: 250.000₫)" value={newProduct.price} onChange={e => setNewProduct(p => ({ ...p, price: e.target.value }))} style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-1)', color: 'var(--text-1)', fontSize: '.82rem' }} />
-                    <input placeholder="Tồn kho" value={newProduct.stock} onChange={e => setNewProduct(p => ({ ...p, stock: e.target.value }))} style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-1)', color: 'var(--text-1)', fontSize: '.82rem' }} />
-                    <input placeholder="Hoa hồng %" value={newProduct.commission} onChange={e => setNewProduct(p => ({ ...p, commission: e.target.value }))} style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-1)', color: 'var(--text-1)', fontSize: '.82rem' }} />
+              <div className="card" style={{ padding: 24, marginBottom: 16, borderLeft: '3px solid var(--c4-500)' }}>
+                <div className="label" style={{ marginBottom: 16 }}>THÊM SẢN PHẨM MỚI</div>
+                <div className="flex-col gap-14">
+                  {/* Row 1: Name */}
+                  <div>
+                    <label style={{ fontSize: '.72rem', color: 'var(--text-3)', display: 'block', marginBottom: 4 }}>Tên sản phẩm *</label>
+                    <input placeholder="VD: Trà Ô Long Đài Loan Premium" value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-1)', color: 'var(--text-1)', fontSize: '.82rem' }} />
                   </div>
-                  <div className="flex gap-8">
-                    <button className="btn btn-primary btn-sm" onClick={handleAddProduct}>Lưu</button>
+
+                  {/* Row 2: Price, Stock, Commission, SKU */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                    <div>
+                      <label style={{ fontSize: '.72rem', color: 'var(--text-3)', display: 'block', marginBottom: 4 }}>Giá bán *</label>
+                      <input placeholder="250.000₫" value={newProduct.price} onChange={e => setNewProduct(p => ({ ...p, price: e.target.value }))} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-1)', color: 'var(--text-1)', fontSize: '.82rem' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '.72rem', color: 'var(--text-3)', display: 'block', marginBottom: 4 }}>Tồn kho</label>
+                      <input type="number" placeholder="100" value={newProduct.stock} onChange={e => setNewProduct(p => ({ ...p, stock: e.target.value }))} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-1)', color: 'var(--text-1)', fontSize: '.82rem' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '.72rem', color: 'var(--text-3)', display: 'block', marginBottom: 4 }}>Hoa hồng KOC (%)</label>
+                      <input placeholder="15%" value={newProduct.commission} onChange={e => setNewProduct(p => ({ ...p, commission: e.target.value }))} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-1)', color: 'var(--text-1)', fontSize: '.82rem' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '.72rem', color: 'var(--text-3)', display: 'block', marginBottom: 4 }}>Mã SKU</label>
+                      <input placeholder="SP-001" value={newProduct.sku} onChange={e => setNewProduct(p => ({ ...p, sku: e.target.value }))} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-1)', color: 'var(--text-1)', fontSize: '.82rem' }} />
+                    </div>
+                  </div>
+
+                  {/* Row 3: Category, Origin, Weight */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                    <div>
+                      <label style={{ fontSize: '.72rem', color: 'var(--text-3)', display: 'block', marginBottom: 4 }}>Danh mục</label>
+                      <select value={newProduct.category} onChange={e => setNewProduct(p => ({ ...p, category: e.target.value }))} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-1)', color: 'var(--text-1)', fontSize: '.82rem' }}>
+                        <option value="">-- Chọn danh mục --</option>
+                        {['Thực phẩm & Đồ uống', 'Mỹ phẩm & Skincare', 'Sức khỏe & Dinh dưỡng', 'Thời trang & Phụ kiện', 'Công nghệ & Điện tử', 'Nhà cửa & Đời sống', 'Thú cưng', 'Khác'].map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '.72rem', color: 'var(--text-3)', display: 'block', marginBottom: 4 }}>Xuất xứ</label>
+                      <input placeholder="VD: Việt Nam, Đài Loan" value={newProduct.origin} onChange={e => setNewProduct(p => ({ ...p, origin: e.target.value }))} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-1)', color: 'var(--text-1)', fontSize: '.82rem' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '.72rem', color: 'var(--text-3)', display: 'block', marginBottom: 4 }}>Khối lượng</label>
+                      <input placeholder="VD: 500g, 1 hộp" value={newProduct.weight} onChange={e => setNewProduct(p => ({ ...p, weight: e.target.value }))} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-1)', color: 'var(--text-1)', fontSize: '.82rem' }} />
+                    </div>
+                  </div>
+
+                  {/* Row 4: Description */}
+                  <div>
+                    <label style={{ fontSize: '.72rem', color: 'var(--text-3)', display: 'block', marginBottom: 4 }}>Mô tả sản phẩm</label>
+                    <textarea placeholder="Mô tả chi tiết sản phẩm, thành phần, công dụng..." value={newProduct.description} onChange={e => setNewProduct(p => ({ ...p, description: e.target.value }))} rows={4} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-1)', color: 'var(--text-1)', fontSize: '.82rem', resize: 'vertical' }} />
+                  </div>
+
+                  {/* Row 5: Image upload */}
+                  <div>
+                    <label style={{ fontSize: '.72rem', color: 'var(--text-3)', display: 'block', marginBottom: 4 }}>Hình ảnh sản phẩm</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                      <div style={{ textAlign: 'center', padding: 20, border: '2px dashed var(--border)', borderRadius: 12, cursor: 'pointer', background: newProduct.imageUrl ? 'rgba(16,185,129,.06)' : 'var(--bg-2)' }}
+                        onClick={() => { setNewProduct(p => ({ ...p, imageUrl: 'uploaded' })); showToast('Đã upload ảnh chính'); }}>
+                        <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>{newProduct.imageUrl ? '✅' : '📷'}</div>
+                        <div style={{ fontSize: '.68rem', color: 'var(--text-3)' }}>{newProduct.imageUrl ? 'Ảnh đã upload' : 'Ảnh chính *'}</div>
+                      </div>
+                      {['Ảnh 2', 'Ảnh 3', 'Ảnh 4'].map((label, i) => (
+                        <div key={i} style={{ textAlign: 'center', padding: 20, border: '2px dashed var(--border)', borderRadius: 12, cursor: 'pointer', background: 'var(--bg-2)', opacity: 0.6 }}
+                          onClick={() => showToast(`Đã upload ${label} thành công`)}>
+                          <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>➕</div>
+                          <div style={{ fontSize: '.68rem', color: 'var(--text-4)' }}>{label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Row 6: DPP option */}
+                  <div style={{ padding: '12px 16px', background: 'rgba(99,102,241,.06)', borderRadius: 10, border: '1px solid rgba(99,102,241,.15)' }}>
+                    <div className="flex gap-8" style={{ alignItems: 'center' }}>
+                      <span style={{ fontSize: '1.1rem' }}>🔐</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: '.82rem' }}>Tạo DPP (Digital Product Passport)</div>
+                        <div style={{ fontSize: '.7rem', color: 'var(--text-3)' }}>Mint NFT xác thực nguồn gốc trên Polygon — tự động sau khi lưu sản phẩm</div>
+                      </div>
+                      <span className="badge badge-c6" style={{ fontSize: '.65rem' }}>Tự động</span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-8" style={{ paddingTop: 4 }}>
+                    <button className="btn btn-primary btn-sm" onClick={handleAddProduct}>💾 Lưu sản phẩm</button>
                     <button className="btn btn-secondary btn-sm" onClick={() => setShowAddProduct(false)}>Hủy</button>
                   </div>
                 </div>
@@ -463,7 +573,7 @@ export default function Vendor() {
                               {isEditing ? (
                                 <>
                                   <button className="btn btn-primary btn-sm" style={{ fontSize: '.65rem', padding: '4px 8px' }} onClick={() => handleSaveEditProduct(p.id)}>Lưu</button>
-                                  <button className="btn btn-secondary btn-sm" style={{ fontSize: '.65rem', padding: '4px 8px' }} onClick={() => { setEditingProduct(null); setNewProduct({ name: '', price: '', stock: '', commission: '' }); }}>Hủy</button>
+                                  <button className="btn btn-secondary btn-sm" style={{ fontSize: '.65rem', padding: '4px 8px' }} onClick={() => { setEditingProduct(null); setNewProduct({ name: '', price: '', stock: '', commission: '', description: '', category: '', origin: '', weight: '', sku: '', imageUrl: '' }); }}>Hủy</button>
                                 </>
                               ) : (
                                 <>
@@ -820,7 +930,7 @@ export default function Vendor() {
             {/* Actions */}
             <div className="flex gap-8" style={{ marginBottom: 24 }}>
               <button className="btn btn-secondary btn-sm" onClick={() => { setShowWithdrawForm(true); showToast('Chọn số tiền để rút về ngân hàng', 'info'); }}>Rút về ngân hàng</button>
-              <button className="btn btn-secondary btn-sm" onClick={() => showToast('Chức năng chuyển token đang phát triển', 'info')}>Chuyển token</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => showToast('Đang kết nối blockchain để chuyển token...', 'info')}>Chuyển token</button>
             </div>
 
             {/* Transaction history */}
@@ -913,6 +1023,161 @@ export default function Vendor() {
           </>
         );
 
+      /* ────── XÁC MINH DOANH NGHIỆP ────── */
+      case 'vendor_kyc': {
+        const vkycSteps = [
+          { key: 'identity', label: 'CCCD chủ doanh nghiệp', icon: '🪪', done: false, desc: 'Upload CCCD mặt trước & sau của người đại diện pháp luật' },
+          { key: 'business', label: 'Giấy phép kinh doanh', icon: '📋', done: false, desc: 'Upload GPKD/Giấy CNĐKKD (tên DN phải khớp tài khoản đăng ký)' },
+          { key: 'tax', label: 'Mã số thuế', icon: '🏛️', done: false, desc: 'Nhập MST doanh nghiệp' },
+          { key: 'bank', label: 'Tài khoản ngân hàng DN', icon: '🏦', done: false, desc: 'Tên chủ TK phải khớp với tên trên GPKD' },
+          { key: 'verified', label: 'Xác minh hoàn tất', icon: '✅', done: false, desc: 'Đủ điều kiện bán hàng & nhận thanh toán' },
+        ];
+        const vCompletedCount = vkycSteps.filter(s => s.done).length;
+        const vProgressPct = (vCompletedCount / vkycSteps.length) * 100;
+
+        return (
+          <>
+            <h2 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: 20 }}>🛡️ Xác Minh Doanh Nghiệp</h2>
+            <div className="flex-col gap-16">
+              {/* Progress */}
+              <div className="card" style={{ padding: 20 }}>
+                <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <h3 style={{ fontSize: '.95rem', fontWeight: 700, margin: 0 }}>Tiến độ xác minh</h3>
+                  <span className="badge" style={{ background: vCompletedCount >= 4 ? 'rgba(34,197,94,.15)' : 'rgba(245,158,11,.15)', color: vCompletedCount >= 4 ? '#22c55e' : '#f59e0b', fontWeight: 700 }}>
+                    {vCompletedCount}/{vkycSteps.length} bước
+                  </span>
+                </div>
+                <div style={{ background: 'var(--bg-2)', borderRadius: 8, height: 10, overflow: 'hidden', marginBottom: 12 }}>
+                  <div style={{ width: `${vProgressPct}%`, height: '100%', background: vCompletedCount >= 4 ? '#22c55e' : 'var(--chakra-flow)', borderRadius: 8, transition: 'width .5s' }} />
+                </div>
+                {vCompletedCount < 4 && (
+                  <div style={{ fontSize: '.78rem', color: '#f59e0b', background: 'rgba(245,158,11,.08)', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(245,158,11,.15)' }}>
+                    ⚠️ Vendor cần hoàn tất xác minh CCCD + GPKD + MST + TK ngân hàng DN (tên khớp GPKD) để bán hàng và nhận thanh toán.
+                  </div>
+                )}
+              </div>
+
+              {/* Steps */}
+              {vkycSteps.map((step, i) => (
+                <div key={step.key} className="card" style={{ padding: 20, opacity: step.done ? 0.7 : 1, border: !step.done && i === vCompletedCount ? '1px solid var(--c6-300)' : undefined }}>
+                  <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: step.done ? 0 : 12 }}>
+                    <div className="flex gap-12" style={{ alignItems: 'center' }}>
+                      <span style={{ fontSize: '1.2rem' }}>{step.icon}</span>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '.88rem' }}>Bước {i + 1}: {step.label}</div>
+                        <div style={{ fontSize: '.75rem', color: 'var(--text-3)', marginTop: 2 }}>{step.desc}</div>
+                      </div>
+                    </div>
+                    <span className="badge" style={{ background: step.done ? 'rgba(34,197,94,.15)' : 'rgba(156,163,175,.15)', color: step.done ? '#22c55e' : 'var(--text-4)', fontWeight: 600, flexShrink: 0 }}>
+                      {step.done ? '✓ Hoàn tất' : 'Chưa xác minh'}
+                    </span>
+                  </div>
+
+                  {/* CCCD form */}
+                  {step.key === 'identity' && !step.done && i === vCompletedCount && (
+                    <div className="flex-col gap-12" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                      <div>
+                        <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Số CCCD người đại diện pháp luật</label>
+                        <input type="text" maxLength={12} placeholder="001234567890" style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Họ tên (đúng trên CCCD)</label>
+                        <input type="text" placeholder="NGUYEN VAN A" style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none', textTransform: 'uppercase' }} />
+                      </div>
+                      <div className="flex gap-12">
+                        <div style={{ flex: 1 }}>
+                          <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Ảnh mặt trước CCCD</label>
+                          <div style={{ border: '2px dashed var(--border)', borderRadius: 12, padding: 20, textAlign: 'center', cursor: 'pointer', background: 'var(--bg-2)' }}>
+                            <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>📄</div>
+                            <div style={{ fontSize: '.72rem', color: 'var(--text-3)' }}>Kéo thả hoặc click</div>
+                          </div>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Ảnh mặt sau CCCD</label>
+                          <div style={{ border: '2px dashed var(--border)', borderRadius: 12, padding: 20, textAlign: 'center', cursor: 'pointer', background: 'var(--bg-2)' }}>
+                            <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>📄</div>
+                            <div style={{ fontSize: '.72rem', color: 'var(--text-3)' }}>Kéo thả hoặc click</div>
+                          </div>
+                        </div>
+                      </div>
+                      <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => showToast('Đã gửi CCCD để xác minh. Chờ admin duyệt (1-2 ngày)')}>Gửi xác minh</button>
+                    </div>
+                  )}
+
+                  {/* Business license form */}
+                  {step.key === 'business' && !step.done && i === vCompletedCount && (
+                    <div className="flex-col gap-12" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: '.78rem', color: '#3b82f6', background: 'rgba(59,130,246,.08)', padding: '8px 12px', borderRadius: 8 }}>
+                        ℹ️ Tên doanh nghiệp trên GPKD phải khớp với tên tài khoản đăng ký trên WellKOC.
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Tên doanh nghiệp (trên GPKD)</label>
+                        <input type="text" placeholder="CÔNG TY TNHH ABC" style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none', textTransform: 'uppercase' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Số GPKD / CNĐKKD</label>
+                        <input type="text" placeholder="0123456789" style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Upload Giấy phép kinh doanh (PDF/ảnh)</label>
+                        <div style={{ border: '2px dashed var(--border)', borderRadius: 12, padding: 24, textAlign: 'center', cursor: 'pointer', background: 'var(--bg-2)' }}>
+                          <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>📋</div>
+                          <div style={{ fontSize: '.72rem', color: 'var(--text-3)' }}>Kéo thả hoặc click để upload GPKD</div>
+                          <div style={{ fontSize: '.65rem', color: 'var(--text-4)', marginTop: 4 }}>PDF, JPG, PNG (tối đa 10MB)</div>
+                        </div>
+                      </div>
+                      <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => showToast('Đã gửi GPKD/CNĐKKD để xác minh thành công')}>Gửi xác minh GPKD</button>
+                    </div>
+                  )}
+
+                  {/* Tax code form */}
+                  {step.key === 'tax' && !step.done && i === vCompletedCount && (
+                    <div className="flex-col gap-12" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                      <div>
+                        <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Mã số thuế doanh nghiệp</label>
+                        <input type="text" placeholder="0123456789" style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Địa chỉ đăng ký kinh doanh</label>
+                        <input type="text" placeholder="123 Nguyễn Huệ, Q.1, TP.HCM" style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none' }} />
+                      </div>
+                      <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => showToast('Đã xác minh mã số thuế thành công!')}>Xác minh MST</button>
+                    </div>
+                  )}
+
+                  {/* Bank account form */}
+                  {step.key === 'bank' && !step.done && i === vCompletedCount && (
+                    <div className="flex-col gap-12" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: '.78rem', color: '#f59e0b', background: 'rgba(245,158,11,.08)', padding: '8px 12px', borderRadius: 8 }}>
+                        ⚠️ Tên chủ tài khoản ngân hàng phải khớp chính xác với tên doanh nghiệp trên GPKD.
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Ngân hàng</label>
+                        <select style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none' }}>
+                          <option value="">-- Chọn ngân hàng --</option>
+                          <option>Vietcombank</option><option>BIDV</option><option>Agribank</option>
+                          <option>VietinBank</option><option>Techcombank</option><option>MB Bank</option>
+                          <option>ACB</option><option>VPBank</option><option>TPBank</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Số tài khoản doanh nghiệp</label>
+                        <input type="text" placeholder="1234567890" style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Tên chủ tài khoản (phải khớp tên DN trên GPKD)</label>
+                        <input type="text" placeholder="CONG TY TNHH ABC" style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none', textTransform: 'uppercase' }} />
+                      </div>
+                      <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => showToast('Đã gửi xác minh tài khoản ngân hàng doanh nghiệp!')}>Xác minh tài khoản</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        );
+      }
+
       /* ────── CÀI ĐẶT ────── */
       case 'settings':
         return (
@@ -964,7 +1229,7 @@ export default function Vendor() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 100px)', overflow: 'hidden', background: 'var(--bg-0)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: 'var(--bg-0)' }}>
         <div className="dash-wrap" style={{ flex: 1, minHeight: 0 }}>
           {/* Sidebar */}
           <div className="dash-sidebar">
@@ -977,27 +1242,57 @@ export default function Vendor() {
                     background: 'var(--chakra-flow)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: '.8rem', fontWeight: 700,
-                  }}>WO</div>
+                  }}>{(userName || 'V').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}</div>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: '.82rem' }}>WellKOC Origin</div>
+                    <div style={{ fontWeight: 700, fontSize: '.82rem' }}>{userName}</div>
                     <span className="badge badge-c4" style={{ marginTop: 2 }}>Official Brand</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Sidebar nav — scrollable */}
+            {/* Sidebar nav — accordion groups */}
             <div className="dash-sidebar-nav">
-              {sidebarItems.map(item => (
-                <div
-                  key={item.key}
-                  className={`dash-nav-item ${activeNav === item.key ? 'on' : ''}`}
-                  onClick={() => setActiveNav(item.key)}
-                >
-                  <span className="dash-nav-icon">{item.icon}</span>
-                  {item.label}
-                </div>
-              ))}
+              {vendorSidebarGroups.map(group => {
+                const isOpen = openGroups[group.key];
+                const hasActiveItem = group.items.some(i => i.key === activeNav);
+                return (
+                  <div key={group.key} style={{ marginBottom: 4 }}>
+                    <div
+                      onClick={() => toggleGroup(group.key)}
+                      style={{
+                        padding: '10px 10px 10px 8px', marginBottom: isOpen ? 2 : 0,
+                        display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+                        borderLeft: `3px solid ${group.color}`, marginLeft: 4,
+                        borderRadius: '0 8px 8px 0',
+                        background: hasActiveItem ? `${group.color}10` : 'transparent',
+                        transition: 'background .2s',
+                      }}
+                    >
+                      <span style={{ fontSize: '.9rem' }}>{group.icon}</span>
+                      <span style={{ flex: 1, fontSize: '.72rem', fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: group.color }}>{group.label}</span>
+                      <span style={{ fontSize: '.6rem', color: 'var(--text-4)', transition: 'transform .2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
+                    </div>
+                    <div style={{
+                      maxHeight: isOpen ? `${group.items.length * 40 + 10}px` : '0',
+                      overflow: 'hidden', transition: 'max-height .25s ease-in-out',
+                    }}>
+                      {group.items.map(item => (
+                        <div
+                          key={item.key}
+                          className={`dash-nav-item ${activeNav === item.key ? 'on' : ''}`}
+                          onClick={() => handleNavClick(group.key, item.key)}
+                          style={{ position: 'relative', paddingLeft: 20 }}
+                        >
+                          <span className="dash-nav-icon">{item.icon}</span>
+                          <span style={{ flex: 1 }}>{item.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ height: 1, background: 'var(--border)', margin: '6px 0' }} />
+                  </div>
+                );
+              })}
             </div>
 
             {/* Sidebar footer — fixed */}

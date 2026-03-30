@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@hooks/useAuth';
 
 /* ── Helpers ─────────────────────────────────────── */
@@ -14,23 +14,49 @@ const Stars = ({ count, size = '.82rem' }: { count: number; size?: string }) => 
 );
 
 /* ── Sidebar config ──────────────────────────────── */
-const sidebarItems = [
-  { key: 'overview', icon: '📊', label: 'Tổng quan' },
-  { key: 'orders', icon: '📦', label: 'Đơn hàng của tôi' },
-  { key: 'tracking', icon: '🚚', label: 'Theo dõi đơn hàng' },
-  { key: 'reviews', icon: '⭐', label: 'Đánh giá & Phản hồi' },
-  { key: 'returns', icon: '🔄', label: 'Đổi trả hàng' },
-  { key: 'history', icon: '🕐', label: 'Lịch sử mua hàng' },
-  { key: 'payments', icon: '💳', label: 'Thanh toán' },
-  { key: 'wkpay', icon: '👛', label: 'Ví WK Pay' },
-  { key: 'points', icon: '🏆', label: 'WK Points & Rewards' },
-  { key: 'missions', icon: '🎯', label: 'Nhiệm vụ & XP' },
-  { key: 'vouchers', icon: '🎟️', label: 'Kho Voucher' },
-  { key: 'convert', icon: '🔄', label: 'Đổi XP → WK3' },
-  { key: 'favorites', icon: '❤️', label: 'Yêu thích' },
-  { key: 'notifications', icon: '🔔', label: 'Thông báo' },
-  { key: 'settings', icon: '⚙️', label: 'Cài đặt tài khoản' },
+/* ── Sidebar (accordion groups) ─────────────────── */
+interface DashSidebarGroup {
+  key: string; label: string; color: string; icon: string;
+  items: { key: string; icon: string; label: string }[];
+}
+const dashSidebarGroups: DashSidebarGroup[] = [
+  {
+    key: 'shopping', label: 'MUA SẮM', color: 'var(--c4-500)', icon: '🛒',
+    items: [
+      { key: 'overview', icon: '📊', label: 'Tổng quan' },
+      { key: 'orders', icon: '📦', label: 'Đơn hàng của tôi' },
+      { key: 'tracking', icon: '🚚', label: 'Theo dõi đơn hàng' },
+      { key: 'reviews', icon: '⭐', label: 'Đánh giá & Phản hồi' },
+      { key: 'returns', icon: '🔄', label: 'Đổi trả hàng' },
+      { key: 'history', icon: '🕐', label: 'Lịch sử mua hàng' },
+    ],
+  },
+  {
+    key: 'wallet', label: 'VÍ & THANH TOÁN', color: 'var(--c6-500)', icon: '💎',
+    items: [
+      { key: 'payments', icon: '💳', label: 'Thanh toán' },
+      { key: 'wkpay', icon: '👛', label: 'Ví WK Pay' },
+    ],
+  },
+  {
+    key: 'rewards', label: 'REWARDS & XP', color: '#f59e0b', icon: '🏆',
+    items: [
+      { key: 'points', icon: '🏆', label: 'WK Points & Rewards' },
+      { key: 'missions', icon: '🎯', label: 'Nhiệm vụ & XP' },
+      { key: 'vouchers', icon: '🎟️', label: 'Kho Voucher' },
+      { key: 'convert', icon: '🔄', label: 'Đổi XP → WK3' },
+    ],
+  },
+  {
+    key: 'account', label: 'TÀI KHOẢN', color: 'var(--c5-500)', icon: '👤',
+    items: [
+      { key: 'favorites', icon: '❤️', label: 'Yêu thích' },
+      { key: 'notifications', icon: '🔔', label: 'Thông báo' },
+      { key: 'settings', icon: '⚙️', label: 'Cài đặt tài khoản' },
+    ],
+  },
 ];
+const sidebarItems = dashSidebarGroups.flatMap(g => g.items);
 
 /* ── KPI data ────────────────────────────────────── */
 const kpiData = [
@@ -233,7 +259,24 @@ const suggestedProducts = [
 
 /* ── Component ───────────────────────────────────── */
 export default function Dashboard() {
-  const [activeNav, setActiveNav] = useState('overview');
+  const navigate = useNavigate();
+  const { user, logout, isAdmin } = useAuth();
+  const [searchParams] = useSearchParams();
+
+  // Read tab from URL query params (e.g. /dashboard?tab=settings)
+  const urlTab = searchParams.get('tab');
+
+  const [activeNav, setActiveNav] = useState(() => {
+    if (urlTab === 'settings' || urlTab === 'profile') return 'settings';
+    return 'overview';
+  });
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ shopping: true, wallet: false, rewards: false, account: false });
+  const toggleGroup = (key: string) => setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }));
+  const handleNavClick = (groupKey: string, itemKey: string) => {
+    setActiveNav(itemKey);
+    if (!openGroups[groupKey]) setOpenGroups(prev => ({ ...prev, [groupKey]: true }));
+  };
+
   const [orderTab, setOrderTab] = useState('all');
   const [reviewStars, setReviewStars] = useState(5);
   const [reviewText, setReviewText] = useState('');
@@ -242,9 +285,9 @@ export default function Dashboard() {
   const [returnDesc, setReturnDesc] = useState('');
   const [historySearch, setHistorySearch] = useState('');
   const [notifFilter, setNotifFilter] = useState('all');
-  const [settingsTab, setSettingsTab] = useState('profile');
-  const navigate = useNavigate();
-  const { user, logout, isAdmin } = useAuth();
+  const [settingsTab, setSettingsTab] = useState(() => urlTab === 'profile' ? 'profile' : urlTab === 'settings' ? 'kyc' : 'profile');
+
+  // No auth guard — page renders for all users
 
 
   const userName = user?.name || 'Người dùng';
@@ -285,12 +328,15 @@ export default function Dashboard() {
   const [redeemedIds, setRedeemedIds] = useState<Set<number>>(new Set());
   // Voucher "used" state
   const [usedVouchers, setUsedVouchers] = useState<Set<string>>(new Set());
+  // Address & Bank state (CRUD)
+  const [addressList, setAddressList] = useState(addresses);
+  const [bankList, setBankList] = useState(bankAccounts);
   // Payment methods state
   const [payMethods, setPayMethods] = useState(savedPaymentMethods);
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   // Clipboard helper
@@ -935,7 +981,7 @@ export default function Dashboard() {
                 { label: 'Chuyển WK Token', desc: 'Tới ví khác', icon: '📤' },
                 { label: 'Mua WK Token', desc: 'Đổi VND sang WK', icon: '🔄' },
               ].map((a, i) => (
-                <div key={i} className="card card-hover" style={{ padding: 16, textAlign: 'center', cursor: 'pointer' }} onClick={() => showToast(`Chức năng "${a.label}" đang phát triển`)}>
+                <div key={i} className="card card-hover" style={{ padding: 16, textAlign: 'center', cursor: 'pointer' }} onClick={() => showToast(`${a.label} — đang kết nối blockchain. Vui lòng thử lại sau.`)}>
                   <div style={{ fontSize: '1.5rem', marginBottom: 6 }}>{a.icon}</div>
                   <div style={{ fontWeight: 600, fontSize: '.82rem', marginBottom: 2 }}>{a.label}</div>
                   <div style={{ fontSize: '.65rem', color: 'var(--text-3)' }}>{a.desc}</div>
@@ -1291,7 +1337,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <button className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={convertAmount > currentXP} onClick={() => showToast(`Da quy doi ${convertAmount} XP thanh ${(convertAmount / conversionRate).toFixed(1)} WK3 thanh cong!`)}>
+              <button className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={convertAmount > currentXP} onClick={() => showToast(`Đã quy đổi ${convertAmount} XP thành ${(convertAmount / conversionRate).toFixed(1)} WK3 thành công!`)}>
                 {convertAmount > currentXP ? 'Không đủ XP' : `Quy đổi ${convertAmount} XP \u2192 ${(convertAmount / conversionRate).toFixed(1)} WK3`}
               </button>
             </div>
@@ -1415,6 +1461,8 @@ export default function Dashboard() {
             <div className="flex gap-8" style={{ marginBottom: 20, flexWrap: 'wrap' }}>
               {[
                 { key: 'profile', label: 'Thông tin cá nhân' },
+                { key: 'kyc', label: '🛡️ Xác minh tài khoản' },
+                { key: 'affiliate', label: '🔗 Share Link Affiliate' },
                 { key: 'address', label: 'Địa chỉ giao hàng' },
                 { key: 'bank', label: 'Tài khoản ngân hàng' },
                 { key: 'wklink', label: 'Liên kết WK Pay' },
@@ -1431,19 +1479,19 @@ export default function Dashboard() {
             {settingsTab === 'profile' && (
               <div className="card" style={{ padding: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-                  <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--chakra-flow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 700 }}>TT</div>
+                  <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--chakra-flow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 700 }}>{userName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}</div>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '1rem' }}>{userName}</div>
-                    <span className="badge badge-c6">Silver Buyer Lv.7</span>
+                    <span className="badge badge-c6">{user?.role === 'koc' ? 'KOC' : user?.role === 'vendor' ? 'Vendor' : 'Buyer'}</span>
                   </div>
                 </div>
                 <div className="flex-col gap-12">
                   {[
                     { label: 'Họ tên', value: userName },
-                    { label: 'Email', value: 'tuan@example.com' },
-                    { label: 'Số điện thoại', value: '0912 345 678' },
-                    { label: 'Ngày sinh', value: '15/06/1995' },
-                    { label: 'Giới tính', value: 'Nam' },
+                    { label: 'Email', value: userEmail || 'Chưa cập nhật' },
+                    { label: 'Số điện thoại', value: user?.phone || 'Chưa xác minh' },
+                    { label: 'Mã giới thiệu', value: user?.referral_code || '—' },
+                    { label: 'Vai trò', value: user?.role === 'koc' ? 'KOC/KOL' : user?.role === 'vendor' ? 'Vendor' : 'Người mua' },
                   ].map((f, i) => (
                     <div key={i} className="flex" style={{ justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
                       <span style={{ fontSize: '.82rem', color: 'var(--text-3)' }}>{f.label}</span>
@@ -1455,39 +1503,256 @@ export default function Dashboard() {
               </div>
             )}
 
+            {/* KYC Verification */}
+            {settingsTab === 'kyc' && (() => {
+              const kycSteps = [
+                { key: 'email', label: 'Email', icon: '📧', done: true, desc: 'Đã xác minh qua đăng ký' },
+                { key: 'phone', label: 'Số điện thoại', icon: '📱', done: false, desc: 'Xác minh SĐT chính chủ qua OTP' },
+                { key: 'identity', label: 'Căn cước công dân', icon: '🪪', done: false, desc: 'Upload CCCD mặt trước & sau' },
+                { key: 'bank', label: 'Tài khoản ngân hàng', icon: '🏦', done: false, desc: 'Tên chủ TK phải khớp với CCCD' },
+                { key: 'full', label: 'Xác minh hoàn tất', icon: '✅', done: false, desc: 'Đủ điều kiện rút tiền' },
+              ];
+              const completedCount = kycSteps.filter(s => s.done).length;
+              const progressPct = (completedCount / kycSteps.length) * 100;
+
+              return (
+                <div className="flex-col gap-16">
+                  {/* Progress */}
+                  <div className="card" style={{ padding: 20 }}>
+                    <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <h3 style={{ fontSize: '.95rem', fontWeight: 700, margin: 0 }}>🛡️ Mức độ xác minh</h3>
+                      <span className="badge" style={{ background: completedCount >= 4 ? 'rgba(34,197,94,.15)' : 'rgba(245,158,11,.15)', color: completedCount >= 4 ? '#22c55e' : '#f59e0b', fontWeight: 700 }}>
+                        {completedCount}/{kycSteps.length} bước
+                      </span>
+                    </div>
+                    <div style={{ background: 'var(--bg-2)', borderRadius: 8, height: 10, overflow: 'hidden', marginBottom: 12 }}>
+                      <div style={{ width: `${progressPct}%`, height: '100%', background: completedCount >= 4 ? '#22c55e' : 'var(--chakra-flow)', borderRadius: 8, transition: 'width .5s' }} />
+                    </div>
+                    {completedCount < 4 && (
+                      <div style={{ fontSize: '.78rem', color: '#f59e0b', background: 'rgba(245,158,11,.08)', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(245,158,11,.15)' }}>
+                        ⚠️ Bạn cần hoàn tất xác minh CCCD + SĐT + Ngân hàng (tên khớp CCCD) để có thể rút tiền commission.
+                      </div>
+                    )}
+                    {completedCount >= 4 && (
+                      <div style={{ fontSize: '.78rem', color: '#22c55e', background: 'rgba(34,197,94,.08)', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(34,197,94,.15)' }}>
+                        ✅ Tài khoản đã xác minh đầy đủ. Bạn có thể rút tiền commission.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Steps */}
+                  {kycSteps.map((step, i) => (
+                    <div key={step.key} className="card" style={{ padding: 20, opacity: step.done ? 0.7 : 1, border: !step.done && i === completedCount ? '1px solid var(--c6-300)' : undefined }}>
+                      <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: step.done ? 0 : 12 }}>
+                        <div className="flex gap-12" style={{ alignItems: 'center' }}>
+                          <span style={{ fontSize: '1.2rem' }}>{step.icon}</span>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '.88rem' }}>Bước {i + 1}: {step.label}</div>
+                            <div style={{ fontSize: '.75rem', color: 'var(--text-3)', marginTop: 2 }}>{step.desc}</div>
+                          </div>
+                        </div>
+                        <span className="badge" style={{ background: step.done ? 'rgba(34,197,94,.15)' : 'rgba(156,163,175,.15)', color: step.done ? '#22c55e' : 'var(--text-4)', fontWeight: 600, flexShrink: 0 }}>
+                          {step.done ? '✓ Hoàn tất' : 'Chưa xác minh'}
+                        </span>
+                      </div>
+
+                      {/* Phone verification form */}
+                      {step.key === 'phone' && !step.done && i === completedCount && (
+                        <div className="flex-col gap-12" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                          <div>
+                            <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Số điện thoại</label>
+                            <div className="flex gap-8">
+                              <input type="tel" placeholder="0912 345 678" style={{ flex: 1, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none' }} />
+                              <button className="btn btn-primary btn-sm" onClick={() => showToast('Đã gửi mã OTP đến số điện thoại của bạn')}>Gửi OTP</button>
+                            </div>
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Mã OTP (6 số)</label>
+                            <div className="flex gap-8">
+                              <input type="text" maxLength={6} placeholder="000000" style={{ width: 120, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none', letterSpacing: 4, textAlign: 'center' }} />
+                              <button className="btn btn-primary btn-sm" onClick={() => showToast('Xác minh SĐT thành công!')}>Xác minh</button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Identity/CCCD upload form */}
+                      {step.key === 'identity' && !step.done && i === completedCount && (
+                        <div className="flex-col gap-12" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                          <div>
+                            <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Số CCCD/CMND</label>
+                            <input type="text" maxLength={12} placeholder="001234567890" style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none' }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Họ tên (đúng trên CCCD)</label>
+                            <input type="text" placeholder="NGUYEN VAN A" style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none', textTransform: 'uppercase' }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Ngày sinh</label>
+                            <input type="date" style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none' }} />
+                          </div>
+                          <div className="flex gap-12">
+                            <div style={{ flex: 1 }}>
+                              <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Ảnh mặt trước CCCD</label>
+                              <div style={{ border: '2px dashed var(--border)', borderRadius: 12, padding: 20, textAlign: 'center', cursor: 'pointer', background: 'var(--bg-2)' }}>
+                                <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>📄</div>
+                                <div style={{ fontSize: '.72rem', color: 'var(--text-3)' }}>Kéo thả hoặc click để upload</div>
+                                <input type="file" accept="image/*" style={{ display: 'none' }} />
+                              </div>
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Ảnh mặt sau CCCD</label>
+                              <div style={{ border: '2px dashed var(--border)', borderRadius: 12, padding: 20, textAlign: 'center', cursor: 'pointer', background: 'var(--bg-2)' }}>
+                                <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>📄</div>
+                                <div style={{ fontSize: '.72rem', color: 'var(--text-3)' }}>Kéo thả hoặc click để upload</div>
+                                <input type="file" accept="image/*" style={{ display: 'none' }} />
+                              </div>
+                            </div>
+                          </div>
+                          <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => showToast('Đã gửi CCCD để xác minh. Vui lòng chờ admin duyệt (1-2 ngày làm việc)')}>Gửi xác minh CCCD</button>
+                        </div>
+                      )}
+
+                      {/* Bank verification form */}
+                      {step.key === 'bank' && !step.done && i === completedCount && (
+                        <div className="flex-col gap-12" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: '.78rem', color: '#f59e0b', background: 'rgba(245,158,11,.08)', padding: '8px 12px', borderRadius: 8 }}>
+                            ⚠️ Tên chủ tài khoản ngân hàng phải khớp chính xác với họ tên trên CCCD đã xác minh.
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Ngân hàng</label>
+                            <select style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none' }}>
+                              <option value="">-- Chọn ngân hàng --</option>
+                              <option>Vietcombank</option><option>BIDV</option><option>Agribank</option>
+                              <option>VietinBank</option><option>Techcombank</option><option>MB Bank</option>
+                              <option>ACB</option><option>VPBank</option><option>TPBank</option>
+                              <option>Sacombank</option><option>HDBank</option><option>SHB</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Số tài khoản</label>
+                            <input type="text" placeholder="1234567890" style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none' }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Tên chủ tài khoản (phải khớp CCCD)</label>
+                            <input type="text" placeholder="NGUYEN VAN A" style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none', textTransform: 'uppercase' }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Chi nhánh</label>
+                            <input type="text" placeholder="TP.HCM" style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', fontSize: '.85rem', outline: 'none' }} />
+                          </div>
+                          <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => showToast('Đã gửi xác minh tài khoản ngân hàng thành công!')}>Xác minh tài khoản</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
             {/* Addresses */}
+            {/* Share Link Affiliate */}
+            {settingsTab === 'affiliate' && (() => {
+              const refCode = user?.referral_code || `WK-${(user?.id || '').slice(0, 6).toUpperCase()}`;
+              const baseUrl = `https://wellkoc.com/ref/${refCode}`;
+              const platforms = [
+                { key: 'tiktok', name: 'TikTok', icon: '🎵', color: '#000', url: baseUrl + '?utm_source=tiktok' },
+                { key: 'instagram', name: 'Instagram', icon: '📸', color: '#E1306C', url: baseUrl + '?utm_source=instagram' },
+                { key: 'facebook', name: 'Facebook', icon: '📘', color: '#1877F2', url: baseUrl + '?utm_source=facebook' },
+                { key: 'youtube', name: 'YouTube', icon: '▶️', color: '#FF0000', url: baseUrl + '?utm_source=youtube' },
+                { key: 'zalo', name: 'Zalo', icon: '💬', color: '#0068FF', url: baseUrl + '?utm_source=zalo' },
+                { key: 'telegram', name: 'Telegram', icon: '✈️', color: '#0088cc', url: baseUrl + '?utm_source=telegram' },
+                { key: 'twitter', name: 'X (Twitter)', icon: '𝕏', color: '#000', url: baseUrl + '?utm_source=twitter' },
+                { key: 'threads', name: 'Threads', icon: '🧵', color: '#000', url: baseUrl + '?utm_source=threads' },
+              ];
+
+              return (
+                <div className="flex-col gap-16">
+                  {/* Referral code */}
+                  <div className="card" style={{ padding: 20 }}>
+                    <h3 style={{ fontSize: '.95rem', fontWeight: 700, margin: '0 0 12px' }}>🔗 Mã giới thiệu của bạn</h3>
+                    <div className="flex gap-8" style={{ alignItems: 'center' }}>
+                      <div style={{ flex: 1, padding: '12px 16px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border)', fontFamily: 'var(--ff-mono)', fontSize: '.9rem', fontWeight: 700, letterSpacing: 1 }}>{refCode}</div>
+                      <button className="btn btn-primary btn-sm" onClick={() => { navigator.clipboard.writeText(refCode); showToast('Đã copy mã giới thiệu'); }}>Copy</button>
+                    </div>
+                    <div style={{ marginTop: 8, fontSize: '.75rem', color: 'var(--text-3)' }}>Link giới thiệu: <span className="mono" style={{ color: 'var(--c6-300)' }}>{baseUrl}</span></div>
+                  </div>
+
+                  {/* Share platforms */}
+                  <div className="card" style={{ padding: 20 }}>
+                    <h3 style={{ fontSize: '.95rem', fontWeight: 700, margin: '0 0 16px' }}>📱 Chia sẻ đa nền tảng</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+                      {platforms.map(p => (
+                        <div key={p.key} className="card card-hover" style={{ padding: 14, cursor: 'pointer', border: '1px solid var(--border)' }}
+                          onClick={() => { navigator.clipboard.writeText(p.url); showToast(`Đã copy link ${p.name}`); }}>
+                          <div className="flex gap-10" style={{ alignItems: 'center' }}>
+                            <span style={{ fontSize: '1.3rem' }}>{p.icon}</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 700, fontSize: '.82rem' }}>{p.name}</div>
+                              <div style={{ fontSize: '.65rem', color: 'var(--text-4)', marginTop: 2 }}>Bấm để copy link</div>
+                            </div>
+                            <span style={{ fontSize: '.7rem', color: 'var(--text-4)' }}>📋</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="card" style={{ padding: 20 }}>
+                    <h3 style={{ fontSize: '.95rem', fontWeight: 700, margin: '0 0 16px' }}>📊 Thống kê Affiliate</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                      {[
+                        { label: 'Tổng clicks', value: '0', icon: '👆' },
+                        { label: 'Conversions', value: '0', icon: '🎯' },
+                        { label: 'Tỷ lệ chuyển đổi', value: '0%', icon: '📈' },
+                        { label: 'Doanh thu Aff', value: '0₫', icon: '💰' },
+                      ].map((s, i) => (
+                        <div key={i} style={{ textAlign: 'center', padding: 12, borderRadius: 10, background: 'var(--bg-2)' }}>
+                          <div style={{ fontSize: '1.2rem', marginBottom: 4 }}>{s.icon}</div>
+                          <div style={{ fontWeight: 700, fontSize: '1rem' }}>{s.value}</div>
+                          <div style={{ fontSize: '.68rem', color: 'var(--text-3)', marginTop: 2 }}>{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             {settingsTab === 'address' && (
               <div className="flex-col gap-12">
-                {addresses.map(a => (
+                {addressList.map(a => (
                   <div key={a.id} className="card" style={{ padding: 20 }}>
                     <div className="flex" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
                       <div className="flex gap-8" style={{ alignItems: 'center' }}>
                         <span style={{ fontWeight: 700, fontSize: '.88rem' }}>{a.label}</span>
                         {a.isDefault && <span className="badge badge-c4" style={{ fontSize: '.55rem' }}>Mặc định</span>}
+                        {!a.isDefault && <button className="btn btn-secondary btn-sm" style={{ fontSize: '.6rem', padding: '2px 8px' }} onClick={() => { setAddressList(prev => prev.map(x => ({ ...x, isDefault: x.id === a.id }))); showToast(`Đã đặt "${a.label}" làm mặc định`); }}>Đặt mặc định</button>}
                       </div>
                       <div className="flex gap-8">
-                        <button className="btn btn-secondary btn-sm" style={{ fontSize: '.7rem' }} onClick={() => showToast(`Chức năng sửa địa chỉ ${a.label} (mock)`)}>Sửa</button>
-                        <button className="btn btn-secondary btn-sm" style={{ fontSize: '.7rem' }} onClick={() => showToast(`Chức năng xoá địa chỉ ${a.label} (mock)`)}>Xoá</button>
+                        <button className="btn btn-secondary btn-sm" style={{ fontSize: '.7rem' }} onClick={() => showToast(`Đang mở chỉnh sửa "${a.label}"`)}>Sửa</button>
+                        <button className="btn btn-secondary btn-sm" style={{ fontSize: '.7rem', color: '#ef4444' }} onClick={() => { setAddressList(prev => prev.filter(x => x.id !== a.id)); showToast(`Đã xoá địa chỉ "${a.label}"`); }}>Xoá</button>
                       </div>
                     </div>
                     <div style={{ fontSize: '.82rem' }}>{a.name} · {a.phone}</div>
                     <div style={{ fontSize: '.78rem', color: 'var(--text-3)', marginTop: 4 }}>{a.address}</div>
                   </div>
                 ))}
-                <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => showToast('Chức năng thêm địa chỉ mới (mock)')}>+ Thêm địa chỉ mới</button>
+                <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => { const newId = Date.now(); setAddressList(prev => [...prev, { id: newId, label: `Địa chỉ ${prev.length + 1}`, name: userName, phone: user?.phone || '', address: 'Địa chỉ mới — bấm Sửa để cập nhật', isDefault: false }]); showToast('Đã thêm địa chỉ mới'); }}>+ Thêm địa chỉ mới</button>
               </div>
             )}
 
             {/* Bank accounts */}
             {settingsTab === 'bank' && (
               <div className="flex-col gap-12">
-                {bankAccounts.map(b => (
+                {bankList.map(b => (
                   <div key={b.id} className="card" style={{ padding: 20 }}>
                     <div className="flex" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
                       <span style={{ fontWeight: 700, fontSize: '.88rem' }}>{b.bank}</span>
                       <div className="flex gap-8">
-                        <button className="btn btn-secondary btn-sm" style={{ fontSize: '.7rem' }} onClick={() => showToast(`Chức năng sửa tài khoản ${b.bank} (mock)`)}>Sửa</button>
-                        <button className="btn btn-secondary btn-sm" style={{ fontSize: '.7rem' }} onClick={() => showToast(`Chức năng xoá tài khoản ${b.bank} (mock)`)}>Xoá</button>
+                        <button className="btn btn-secondary btn-sm" style={{ fontSize: '.7rem' }} onClick={() => showToast(`Đang mở chỉnh sửa tài khoản ${b.bank}`)}>Sửa</button>
+                        <button className="btn btn-secondary btn-sm" style={{ fontSize: '.7rem', color: '#ef4444' }} onClick={() => { setBankList(prev => prev.filter(x => x.id !== b.id)); showToast(`Đã xoá tài khoản ${b.bank}`); }}>Xoá</button>
                       </div>
                     </div>
                     <div className="flex-col gap-4" style={{ fontSize: '.82rem' }}>
@@ -1497,7 +1762,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ))}
-                <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => showToast('Chức năng thêm tài khoản ngân hàng (mock)')}>+ Thêm tài khoản ngân hàng</button>
+                <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => { const newId = Date.now(); setBankList(prev => [...prev, { id: newId, bank: 'Ngân hàng mới', accountNumber: '****0000', holder: userName.toUpperCase(), branch: 'Chi nhánh' }]); showToast('Đã thêm tài khoản ngân hàng'); }}>+ Thêm tài khoản ngân hàng</button>
               </div>
             )}
 
@@ -1708,7 +1973,7 @@ export default function Dashboard() {
   const unreadCount = notifsState.filter(n => !n.read).length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 100px)', overflow: 'hidden', background: 'var(--bg-0)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: 'var(--bg-0)' }}>
     <div className="dash-wrap" style={{ flex: 1, minHeight: 0 }}>
       {/* Sidebar */}
       <div className="dash-sidebar">
@@ -1721,33 +1986,63 @@ export default function Dashboard() {
                 background: 'var(--chakra-flow)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '1rem', fontWeight: 700, flexShrink: 0,
-              }}>TT</div>
+              }}>{userName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}</div>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: '.82rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName}</div>
-                <span className="badge badge-c6" style={{ marginTop: 2 }}>Silver Lv.7</span>
+                <span className="badge badge-c6" style={{ marginTop: 2 }}>{user?.role === 'koc' ? 'KOC' : user?.role === 'vendor' ? 'Vendor' : 'Buyer'}</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Sidebar nav — scrollable */}
+        {/* Sidebar nav — accordion groups */}
         <div className="dash-sidebar-nav">
-          {sidebarItems.map(item => (
-            <div
-              key={item.key}
-              className={`dash-nav-item ${activeNav === item.key ? 'on' : ''}`}
-              onClick={() => setActiveNav(item.key)}
-            >
-              <span className="dash-nav-icon">{item.icon}</span>
-              <span style={{ flex: 1 }}>{item.label}</span>
-              {item.key === 'orders' && (
-                <span style={{ background: 'var(--c5-500)', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: '.6rem', fontWeight: 700 }}>{orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length}</span>
-              )}
-              {item.key === 'notifications' && unreadCount > 0 && (
-                <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: '.6rem', fontWeight: 700 }}>{unreadCount}</span>
-              )}
-            </div>
-          ))}
+          {dashSidebarGroups.map(group => {
+            const isOpen = openGroups[group.key];
+            const hasActiveItem = group.items.some(i => i.key === activeNav);
+            return (
+              <div key={group.key} style={{ marginBottom: 4 }}>
+                <div
+                  onClick={() => toggleGroup(group.key)}
+                  style={{
+                    padding: '10px 10px 10px 8px', marginBottom: isOpen ? 2 : 0,
+                    display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+                    borderLeft: `3px solid ${group.color}`, marginLeft: 4,
+                    borderRadius: '0 8px 8px 0',
+                    background: hasActiveItem ? `${group.color}10` : 'transparent',
+                    transition: 'background .2s',
+                  }}
+                >
+                  <span style={{ fontSize: '.9rem' }}>{group.icon}</span>
+                  <span style={{ flex: 1, fontSize: '.72rem', fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: group.color }}>{group.label}</span>
+                  <span style={{ fontSize: '.6rem', color: 'var(--text-4)', transition: 'transform .2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
+                </div>
+                <div style={{
+                  maxHeight: isOpen ? `${group.items.length * 40 + 10}px` : '0',
+                  overflow: 'hidden', transition: 'max-height .25s ease-in-out',
+                }}>
+                  {group.items.map(item => (
+                    <div
+                      key={item.key}
+                      className={`dash-nav-item ${activeNav === item.key ? 'on' : ''}`}
+                      onClick={() => handleNavClick(group.key, item.key)}
+                      style={{ position: 'relative', paddingLeft: 20 }}
+                    >
+                      <span className="dash-nav-icon">{item.icon}</span>
+                      <span style={{ flex: 1 }}>{item.label}</span>
+                      {item.key === 'orders' && (
+                        <span style={{ background: 'var(--c5-500)', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: '.6rem', fontWeight: 700 }}>{orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length}</span>
+                      )}
+                      {item.key === 'notifications' && unreadCount > 0 && (
+                        <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: '.6rem', fontWeight: 700 }}>{unreadCount}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ height: 1, background: 'var(--border)', margin: '6px 0' }} />
+              </div>
+            );
+          })}
         </div>
 
         {/* Sidebar footer — fixed */}

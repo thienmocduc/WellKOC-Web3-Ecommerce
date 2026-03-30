@@ -47,7 +47,7 @@ export default function NotFound() {
               { to: '/hot', label: 'Sản phẩm Hot', icon: '🔥' },
               { to: '/dashboard', label: 'Dashboard', icon: '📊' },
               { to: '/academy', label: 'KOC Academy', icon: '🎓' },
-              { to: '/agents', label: '111 AI Agents', icon: '🤖' },
+              { to: '/agents', label: '333 AI Agents', icon: '🤖' },
             ].map(link => (
               <Link
                 key={link.to}

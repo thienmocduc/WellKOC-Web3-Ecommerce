@@ -140,9 +140,12 @@ export default function Register() {
   };
 
   const goToDashboard = () => {
-    if (selectedRole === 'vendor') navigate('/vendor');
-    else if (selectedRole === 'koc') navigate('/koc');
-    else navigate('/dashboard');
+    // Small delay to ensure Supabase auth state is fully propagated
+    setTimeout(() => {
+      if (selectedRole === 'vendor') navigate('/vendor');
+      else if (selectedRole === 'koc') navigate('/koc');
+      else navigate('/dashboard');
+    }, 500);
   };
 
   return (
@@ -214,6 +217,11 @@ export default function Register() {
           </div>
 
           <div className="reg-content">
+            {/* Back to home */}
+            <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', textDecoration: 'none', fontSize: '.78rem', marginBottom: 16, transition: 'color .2s' }}>
+              ← Về trang chủ
+            </Link>
+
             {/* Progress Indicator */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 20 }}>
               {stepLabels.map((label, i) => {

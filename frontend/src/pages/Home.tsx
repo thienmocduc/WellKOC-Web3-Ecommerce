@@ -99,7 +99,7 @@ export default function Home() {
             Nền tảng kết nối <strong style={{ color: 'var(--text-1)' }}>Người mua</strong> ·{' '}
             <strong style={{ color: 'var(--text-1)' }}>KOC</strong> ·{' '}
             <strong style={{ color: 'var(--text-1)' }}>Vendor</strong> trên blockchain.
-            Hoa hồng on-chain 100% minh bạch. 111 AI Agents phục vụ 24/7.
+            Hoa hồng on-chain 100% minh bạch. 333 AI Agents phục vụ 24/7.
           </p>
 
           <div
@@ -124,7 +124,7 @@ export default function Home() {
             <StatCounter value={142} suffix="₫" label="GMV · YTD" />
             <StatCounter value={12847} suffix="" label="Active KOCs" />
             <StatCounter value={890} suffix="K" label="DPP Minted" />
-            <StatCounter value={111} suffix="" label="AI Agents" />
+            <StatCounter value={333} suffix="" label="AI Agents" />
           </div>
         </div>
       </section>
@@ -297,7 +297,7 @@ export default function Home() {
                   marginBottom: 16,
                 }}
               >
-                111 AI Agents hỗ trợ mọi vai trò 24/7 — phân tích, tư vấn, vận hành.
+                333 AI Agents hỗ trợ mọi vai trò 24/7 — phân tích, tư vấn, vận hành.
                 Công nghệ phục vụ, không thay thế con người.
               </p>
               <div
@@ -468,13 +468,13 @@ export default function Home() {
                 }}
               >
                 Đăng sản phẩm, mint DPP NFT xác thực nguồn gốc. Mạng lưới KOC bán hàng —
-                111 AI Agents hỗ trợ vận hành 24/7.
+                333 AI Agents hỗ trợ vận hành 24/7.
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
                 <span className="badge badge-c7">DPP Mint</span>
                 <span className="badge badge-c6">AI Live</span>
                 <span className="badge badge-c7">Analytics</span>
-                <span className="badge badge-c6">111 Agents</span>
+                <span className="badge badge-c6">333 Agents</span>
               </div>
               <div
                 style={{
@@ -934,7 +934,7 @@ export default function Home() {
               { value: 142, suffix: '₫', label: 'GMV (tỷ ₫)' },
               { value: 12847, suffix: '', label: 'Active KOCs' },
               { value: 890, suffix: 'K', label: 'DPP Minted' },
-              { value: 111, suffix: '', label: 'AI Agents' },
+              { value: 333, suffix: '', label: 'AI Agents' },
               { value: 2400, suffix: '', label: 'Live Sessions' },
               { value: 38, suffix: '₫', label: 'Hoa hồng đã trả (tỷ ₫)' },
             ].map((stat, i) => (
@@ -1091,7 +1091,7 @@ export default function Home() {
                     color: 'var(--c7-300)',
                   }}
                 >
-                  111 AI Agents 24/7
+                  333 AI Agents 24/7
                 </div>
                 <div style={{ fontSize: '.72rem', color: 'var(--text-3)' }}>
                   Vận hành tự động không ngừng nghỉ

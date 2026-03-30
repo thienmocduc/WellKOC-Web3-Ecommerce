@@ -50,6 +50,7 @@ interface AuthContextValue {
   loginAsync: (email: string, password: string, role?: UserRole) => Promise<LoginResult>;
   loginWithGoogle: () => Promise<LoginResult>;
   loginWithFacebook: () => Promise<LoginResult>;
+  loginWithWallet: () => Promise<LoginResult>;
   registerAsync: (data: RegisterData) => Promise<LoginResult>;
   logout: () => void;
   enable2FA: () => Promise<Enable2FAResult>;
@@ -218,6 +219,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: true };
   }, []);
 
+  // Wallet login — MetaMask / injected wallet
+  const loginWithWallet = useCallback(async (): Promise<LoginResult> => {
+    try {
+      const eth = (window as any).ethereum;
+      if (!eth) return { success: false, error: 'Vui lòng cài MetaMask hoặc ví tương thích' };
+
+      // Request account access
+      const accounts: string[] = await eth.request({ method: 'eth_requestAccounts' });
+      if (!accounts.length) return { success: false, error: 'Không tìm thấy tài khoản ví' };
+      const address = accounts[0];
+
+      // Create sign message
+      const timestamp = Date.now();
+      const message = `Sign in to WellKOC\nWallet: ${address}\nTimestamp: ${timestamp}`;
+
+      // Sign message with wallet
+      const signature: string = await eth.request({
+        method: 'personal_sign',
+        params: [message, address],
+      });
+
+      // Send to backend for verification
+      const res = await fetch(`${API_BASE}/auth/wallet/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet_address: address, signature, message }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return { success: false, error: err.detail || 'Xác thực ví thất bại' };
+      }
+
+      const data = await res.json();
+      // Backend returns JWT tokens — create user session
+      const user: User = {
+        id: data.user?.id || address,
+        email: data.user?.email || '',
+        name: data.user?.display_name || `${address.slice(0, 6)}...${address.slice(-4)}`,
+        role: (data.user?.role as UserRole) || 'user',
+        avatar: data.user?.avatar_url,
+      };
+      setAuthState({ user, token: data.access_token, refreshToken: data.refresh_token || null });
+      return { success: true };
+    } catch (err: any) {
+      if (err.code === 4001) return { success: false, error: 'Bạn đã từ chối kết nối ví' };
+      return { success: false, error: err.message || 'Lỗi kết nối ví' };
+    }
+  }, []);
+
   // Register — Supabase Auth
   const registerAsync = useCallback(async (data: RegisterData): Promise<LoginResult> => {
     setLoading(true);
@@ -239,10 +290,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         setLoading(false);
+        console.error('[Register Error]', error.message, error);
         const msg = error.message.includes('already registered')
           ? 'Email này đã được đăng ký. Vui lòng đăng nhập.'
           : error.message.includes('Password should be')
           ? 'Mật khẩu phải có ít nhất 6 ký tự'
+          : error.message.includes('email')
+          ? 'Lỗi khi gửi email xác nhận. Vui lòng thử email khác.'
           : error.message;
         return { success: false, error: msg };
       }
@@ -314,6 +368,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginAsync,
       loginWithGoogle,
       loginWithFacebook,
+      loginWithWallet,
       registerAsync,
       logout,
       enable2FA,
@@ -338,6 +393,7 @@ export function useAuth(): AuthContextValue {
       loginAsync: async () => ({ success: false, error: 'No auth provider' }),
       loginWithGoogle: async () => ({ success: false, error: 'No auth provider' }),
       loginWithFacebook: async () => ({ success: false, error: 'No auth provider' }),
+      loginWithWallet: async () => ({ success: false, error: 'No auth provider' }),
       registerAsync: async () => ({ success: false, error: 'No auth provider' }),
       logout: () => {},
       enable2FA: async () => ({ success: false, error: 'No auth provider' }),
