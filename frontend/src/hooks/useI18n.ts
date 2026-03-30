@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import { commerceTranslations } from '../i18n/commerce';
 import { userTranslations } from '../i18n/user';
 import { adminTranslations } from '../i18n/admin';
@@ -39,7 +39,7 @@ const translations: TranslationMap = {
   'drawer.web3': { vi: 'WEB3 & BLOCKCHAIN', en: 'WEB3 & BLOCKCHAIN', zh: 'WEB3 & 区块链', th: 'WEB3 & บล็อกเชน', hi: 'WEB3 और ब्लॉकचेन' },
   'drawer.ai': { vi: 'AI & SOCIAL', en: 'AI & SOCIAL', zh: 'AI & 社交', th: 'AI & โซเชียล', hi: 'AI और सोशल' },
   'drawer.account': { vi: 'TÀI KHOẢN', en: 'ACCOUNT', zh: '账户', th: 'บัญชี', hi: 'खाता' },
-  'drawer.gamification': { vi: 'Gamification', en: 'Gamification', zh: '游戏化', th: 'เกมมิฟิเคชัน', hi: 'गेमिफिकेशन' },
+  'drawer.gamification': { vi: 'Gamification', en: 'Gamification', zh: '游戏化', th: 'เกมมิฟิเคชัน', hi: 'गेมิफิकेशन' },
 
   // Drawer items - Platform
   'drawer.marketplace': { vi: 'Marketplace', en: 'Marketplace', zh: '市场', th: 'ตลาด', hi: 'बाज़ार' },
@@ -58,14 +58,14 @@ const translations: TranslationMap = {
 
   // Drawer items - AI
   'drawer.agents': { vi: '333 AI Agents', en: '333 AI Agents', zh: '333 AI 代理', th: '333 เอไอเอเจนท์', hi: '333 AI एजेंट' },
-  'drawer.groupBuy': { vi: 'Mua nhóm AI', en: 'AI Group Buy', zh: 'AI 团购', th: 'AI ซื้อกลุ่ม', hi: 'AI ग्रुप बाय' },
+  'drawer.groupBuy': { vi: 'Mua nhóm AI', en: 'AI Group Buy', zh: 'AI 团购', th: 'AI ซื้อกลุ่ม', hi: 'AI ग्रุป बाय' },
   'drawer.liveCommerce': { vi: 'AI Live Commerce', en: 'AI Live Commerce', zh: 'AI 直播电商', th: 'AI ไลฟ์คอมเมิร์ซ', hi: 'AI लाइव कॉमर्स' },
   'drawer.socialGraph': { vi: 'Social Graph', en: 'Social Graph', zh: '社交图谱', th: 'โซเชียลกราฟ', hi: 'सोशल ग्राफ' },
   'drawer.videoFeed': { vi: 'Video Feed', en: 'Video Feed', zh: '视频流', th: 'วิดีโอฟีด', hi: 'वीडियो फीड' },
 
   // Drawer items - Account
   'drawer.profile': { vi: 'Hồ sơ cá nhân', en: 'Profile', zh: '个人资料', th: 'โปรไฟล์', hi: 'प्रोफ़ाइल' },
-  'drawer.notifications': { vi: 'Thông báo', en: 'Notifications', zh: '通知', th: 'การแจ้งเตือน', hi: 'सूचनाएँ' },
+  'drawer.notifications': { vi: 'Thông báo', en: 'Notifications', zh: '通知', th: 'การแจ้งเตือน', hi: 'सूचนาएँ' },
   'drawer.settings': { vi: 'Cài đặt', en: 'Settings', zh: '设置', th: 'การตั้งค่า', hi: 'सेटिंग्स' },
   'drawer.language': { vi: 'Ngôn ngữ', en: 'Language', zh: '语言', th: 'ภาษา', hi: 'भाषा' },
 
@@ -86,38 +86,58 @@ const translations: TranslationMap = {
   // Misc
   'ticker.welcome': { vi: 'Chào mừng đến WellKOC', en: 'Welcome to WellKOC', zh: '欢迎来到WellKOC', th: 'ยินดีต้อนรับสู่ WellKOC', hi: 'WellKOC में आपका स्वागत है' },
 
-  // Merge commerce page translations
+  // Merge all page translations
   ...commerceTranslations,
-
-  // Merge user/auth page translations
   ...userTranslations as TranslationMap,
-
-  // Merge admin page translations
   ...adminTranslations,
-
-  // Merge KOC & social page translations
   ...kocTranslations,
-
-  // Merge vendor, DPP & pricing page translations
   ...vendorTranslations,
 };
 
+/* ═══════════════════════════════════════════════════════════
+   GLOBAL LOCALE STORE — all components share the same locale
+   useSyncExternalStore ensures instant re-render everywhere
+   when language is changed from any component.
+   ═══════════════════════════════════════════════════════════ */
 const STORAGE_KEY = 'wellkoc-locale';
 
-function getInitialLocale(): Locale {
+const VALID_LOCALES: Locale[] = ['vi', 'en', 'zh', 'th', 'hi'];
+
+function readLocale(): Locale {
   if (typeof window === 'undefined') return 'vi';
   const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored && ['vi', 'en', 'zh', 'th', 'hi'].includes(stored)) return stored as Locale;
+  if (stored && VALID_LOCALES.includes(stored as Locale)) return stored as Locale;
   return 'vi';
 }
 
+// Global mutable locale + listener set
+let _locale: Locale = readLocale();
+const _listeners = new Set<() => void>();
+
+function getSnapshot(): Locale {
+  return _locale;
+}
+
+function subscribe(listener: () => void): () => void {
+  _listeners.add(listener);
+  return () => _listeners.delete(listener);
+}
+
+function setGlobalLocale(l: Locale) {
+  if (l === _locale) return;
+  _locale = l;
+  localStorage.setItem(STORAGE_KEY, l);
+  document.documentElement.setAttribute('lang', l);
+  // Notify ALL subscribers — every useI18n() re-renders instantly
+  _listeners.forEach(fn => fn());
+}
+
+/* ═══ HOOK ═══ */
 export function useI18n() {
-  const [locale, setLocaleState] = useState<Locale>(getInitialLocale);
+  const locale = useSyncExternalStore(subscribe, getSnapshot, () => 'vi' as Locale);
 
   const setLocale = useCallback((l: Locale) => {
-    setLocaleState(l);
-    localStorage.setItem(STORAGE_KEY, l);
-    document.documentElement.setAttribute('lang', l);
+    setGlobalLocale(l);
   }, []);
 
   const t = useCallback(
