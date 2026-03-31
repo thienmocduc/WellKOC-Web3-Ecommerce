@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     social, membership,
     referral, share_links,
     pools, flash_sale,
+    marketing_campaign,
     recommendations, ai_comments,
     publisher, fraud,
     events, compliance, analytics,
@@ -48,6 +49,7 @@ api_router.include_router(admin.router)
 # ── AI & Intelligence ────────────────────────────────────────
 api_router.include_router(ai_agents.router)
 api_router.include_router(ai_comments.router)
+api_router.include_router(marketing_campaign.router)
 
 # ── Recommendations ──────────────────────────────────────────
 api_router.include_router(recommendations.router)
