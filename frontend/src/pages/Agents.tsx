@@ -3,10 +3,11 @@
  * Row 1: Audience tabs (Buyer / KOC / Vendor)
  * Row 2: Function group pills with counts
  * Body: agent card grid — click locked → upgrade modal
+ * Campaign Runner: SSE pipeline connected to /api/v1/ai/marketing/run-campaign
  */
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@hooks/useAuth';
+import { useAuth, API_BASE } from '@hooks/useAuth';
 import { useTheme } from '@hooks/useTheme';
 import { useI18n, LANGUAGES } from '@hooks/useI18n';
 import type { Locale } from '@hooks/useI18n';
@@ -209,6 +210,248 @@ function AgentPanel({agent,onClose}:{agent:AgentDef;onClose:()=>void}) {
 }
 
 /* ─── Main ─── */
+/* ─── Campaign presets ─── */
+const CAMPAIGN_PRESETS: {key:string;label:string;brief:string}[] = [
+  { key:'launch',   label:'🚀 Ra mắt SP',  brief:'Ra mắt serum Vitamin C brightening 299k, KOC 35%, thiên nhiên 95%, target nữ 22-35. Viral TikTok + Facebook 7 ngày.' },
+  { key:'flash',    label:'⚡ Flash Sale',  brief:'Flash sale cuối tuần: giảm 30% toàn bộ, voucher freeship đơn từ 199k, countdown 48h. Target nữ 20-40.' },
+  { key:'live',     label:'📡 Livestream', brief:'Script live 90 phút bán skincare (serum + toner + kem dưỡng), chốt đơn + xử lý phản đối giá + mini game.' },
+  { key:'koc',      label:'⭐ Tuyển KOC',  brief:'Tuyển KOC tháng 4: hoa hồng 40%, không cần kinh nghiệm, AI hỗ trợ 24/7. Target sinh viên + NTNV 18-30.' },
+  { key:'review',   label:'⭐ Thu review', brief:'Thu review: chụp ảnh sản phẩm + #WellKOC nhận 50 điểm, top 10 nhận gift set 500k.' },
+  { key:'wellness', label:'🌿 Wellness',   brief:'Wellness mùa hè: vitamin + collagen + suncare, thông điệp "Đẹp từ bên trong", KOC bác sĩ + lifestyle.' },
+];
+
+const STAGE_LABELS: Record<string,{label:string;icon:string}> = {
+  intake:   { label:'Intake & Parse',        icon:'📋' },
+  research: { label:'Research & Intel',      icon:'🔍' },
+  content:  { label:'Content Factory',       icon:'✍️' },
+  design:   { label:'Design & Visual',       icon:'🎨' },
+  schedule: { label:'Schedule & Publish',    icon:'📅' },
+  publish:  { label:'Distribution Grid',     icon:'📤' },
+  engage:   { label:'Engagement Matrix',     icon:'💬' },
+  analyze:  { label:'Analytics & KPI',       icon:'📊' },
+  report:   { label:'Final Report',          icon:'✅' },
+};
+
+interface StageResult { stage:string; content:string; metrics?:Record<string,unknown>; }
+
+/* ─── Campaign Runner Panel ─── */
+function CampaignRunner({ token, isDark, onClose }:{ token:string|null; isDark:boolean; onClose:()=>void }) {
+  const [brief, setBrief]           = useState('');
+  const [platforms, setPlatforms]   = useState(['tiktok','facebook','instagram','zalo']);
+  const [running, setRunning]       = useState(false);
+  const [progress, setProgress]     = useState(0);
+  const [stageResults, setStageResults] = useState<StageResult[]>([]);
+  const [activeStage, setActiveStage]   = useState('');
+  const [error, setError]           = useState('');
+  const [done, setDone]             = useState(false);
+  const abortRef                    = useRef<AbortController|null>(null);
+  const resultEndRef                = useRef<HTMLDivElement|null>(null);
+
+  useEffect(() => {
+    resultEndRef.current?.scrollIntoView({ behavior:'smooth' });
+  }, [stageResults]);
+
+  const togglePlatform = (p:string) =>
+    setPlatforms(prev => prev.includes(p) ? prev.filter(x=>x!==p) : [...prev, p]);
+
+  const handleRun = async () => {
+    if (!brief.trim() || running) return;
+    if (!token) { setError('Vui lòng đăng nhập để chạy campaign.'); return; }
+    setRunning(true); setDone(false); setError(''); setProgress(0); setStageResults([]); setActiveStage('');
+    abortRef.current = new AbortController();
+    try {
+      const res = await fetch(`${API_BASE}/ai/marketing/run-campaign`, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${token}` },
+        body: JSON.stringify({ brief, platforms }),
+        signal: abortRef.current.signal,
+      });
+      if (!res.ok) { setError(`Lỗi server: ${res.status}`); setRunning(false); return; }
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done: streamDone, value } = await reader.read();
+        if (streamDone) break;
+        buf += decoder.decode(value, { stream:true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop() ?? '';
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith('data:')) continue;
+          try {
+            const evt = JSON.parse(line.slice(5).trim());
+            if (evt.type === 'stage_start') {
+              setActiveStage(evt.stage);
+              setProgress(evt.pct ?? 0);
+            } else if (evt.type === 'stage_done') {
+              setProgress(evt.pct ?? 0);
+              setActiveStage('');
+              if (evt.content) setStageResults(prev => [...prev, { stage: evt.stage, content: evt.content, metrics: evt.metrics }]);
+            } else if (evt.type === 'complete') {
+              setProgress(100); setDone(true);
+            } else if (evt.type === 'error') {
+              setError(evt.message || 'Lỗi không xác định');
+            }
+          } catch { /* skip malformed */ }
+        }
+      }
+    } catch (e:unknown) {
+      if ((e as Error).name !== 'AbortError') setError(String(e));
+    } finally { setRunning(false); }
+  };
+
+  const BG = isDark ? '#05101e' : '#f0f4f8';
+  const CARD = isDark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)';
+  const BORDER = isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.1)';
+  const TXT = isDark ? '#d4e6ff' : '#1a2a3a';
+  const DIM = isDark ? '#4a6a8a' : '#6b7e96';
+
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:3000, display:'flex', flexDirection:'column', background:BG, fontFamily:'Inter,system-ui,sans-serif', color:TXT }}>
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 20px', borderBottom:`1px solid ${BORDER}`, flexShrink:0, background: isDark?'#071525':'#e8edf5' }}>
+        <span style={{ fontSize:22 }}>🤖</span>
+        <div style={{ flex:1 }}>
+          <div style={{ fontWeight:800, fontSize:'0.95rem', background:'linear-gradient(135deg,#00c9c8,#a78bfa)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>333 Agent Campaign Runner</div>
+          <div style={{ fontSize:'0.65rem', color:DIM, marginTop:1 }}>AI Marketing Pipeline · 9 stages · Gemini 2.5 Flash</div>
+        </div>
+        {running && (
+          <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:'0.75rem', color:'#00c9c8' }}>
+            <div style={{ width:8, height:8, borderRadius:'50%', background:'#00c9c8', animation:'pulse 1s infinite' }} />
+            {STAGE_LABELS[activeStage]?.icon} {STAGE_LABELS[activeStage]?.label || 'Processing...'}
+          </div>
+        )}
+        <button onClick={() => { abortRef.current?.abort(); onClose(); }}
+          style={{ background:'transparent', border:`1px solid ${BORDER}`, borderRadius:8, color:DIM, cursor:'pointer', padding:'6px 14px', fontSize:'0.78rem' }}>
+          ✕ Đóng
+        </button>
+      </div>
+
+      <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
+        {/* Left: Input panel */}
+        <div style={{ width:340, flexShrink:0, borderRight:`1px solid ${BORDER}`, display:'flex', flexDirection:'column', overflowY:'auto' }}>
+          <div style={{ padding:'16px' }}>
+            {/* Presets */}
+            <div style={{ fontSize:'0.72rem', color:DIM, fontWeight:600, marginBottom:8, textTransform:'uppercase' as const, letterSpacing:1 }}>Preset nhanh</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, marginBottom:16 }}>
+              {CAMPAIGN_PRESETS.map(p => (
+                <button key={p.key} onClick={() => setBrief(p.brief)}
+                  style={{ padding:'7px 10px', borderRadius:8, border:`1px solid ${BORDER}`, background:CARD, color:TXT, cursor:'pointer', fontSize:'0.72rem', fontWeight:600, textAlign:'left' as const, transition:'all .15s' }}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Brief input */}
+            <div style={{ fontSize:'0.72rem', color:DIM, fontWeight:600, marginBottom:6, textTransform:'uppercase' as const, letterSpacing:1 }}>Campaign Brief</div>
+            <textarea
+              value={brief}
+              onChange={e => setBrief(e.target.value)}
+              placeholder="Mô tả campaign: sản phẩm, mục tiêu, target, kênh phân phối, budget..."
+              rows={6}
+              style={{ width:'100%', resize:'vertical' as const, padding:'10px', borderRadius:10, border:`1px solid ${BORDER}`, background:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)', color:TXT, fontSize:'0.82rem', lineHeight:1.6, outline:'none', boxSizing:'border-box' as const }}
+            />
+            <div style={{ fontSize:'0.65rem', color:DIM, marginTop:4, textAlign:'right' as const }}>{brief.length}/2000</div>
+
+            {/* Platforms */}
+            <div style={{ fontSize:'0.72rem', color:DIM, fontWeight:600, marginBottom:8, marginTop:14, textTransform:'uppercase' as const, letterSpacing:1 }}>Nền tảng</div>
+            <div style={{ display:'flex', flexWrap:'wrap' as const, gap:6 }}>
+              {[['tiktok','TikTok','🎵'],['facebook','Facebook','📘'],['instagram','Instagram','📸'],['zalo','Zalo','💚'],['youtube','YouTube','▶️']].map(([id,label,icon]) => {
+                const active = platforms.includes(id);
+                return (
+                  <button key={id} onClick={() => togglePlatform(id)}
+                    style={{ padding:'5px 10px', borderRadius:20, border:`1px solid ${active?'#00c9c8':BORDER}`, background:active?'rgba(0,201,200,.12)':CARD, color:active?'#00c9c8':DIM, cursor:'pointer', fontSize:'0.72rem', fontWeight:active?700:400, transition:'all .15s' }}>
+                    {icon} {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Run button */}
+            <button
+              onClick={handleRun}
+              disabled={running || !brief.trim()}
+              style={{ width:'100%', marginTop:20, padding:'12px', borderRadius:12, border:'none', background: running||!brief.trim() ? 'rgba(255,255,255,.08)' : 'linear-gradient(135deg,#00c9c8,#a78bfa)', color: running||!brief.trim() ? DIM : '#fff', cursor: running||!brief.trim() ? 'not-allowed' : 'pointer', fontWeight:700, fontSize:'0.88rem', transition:'all .2s' }}>
+              {running ? '⏳ Đang chạy pipeline...' : '🚀 Chạy Campaign (9 Agents)'}
+            </button>
+
+            {error && (
+              <div style={{ marginTop:10, padding:'10px', borderRadius:8, background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.3)', color:'#ef4444', fontSize:'0.78rem' }}>
+                ⚠️ {error}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Pipeline output */}
+        <div style={{ flex:1, overflowY:'auto', padding:'16px 20px' }}>
+          {/* Progress bar */}
+          {(running || done) && (
+            <div style={{ marginBottom:16 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', fontSize:'0.72rem', color:DIM, marginBottom:4 }}>
+                <span>{done ? '✅ Hoàn tất' : `${STAGE_LABELS[activeStage]?.icon||'⏳'} ${STAGE_LABELS[activeStage]?.label||'Đang xử lý...'}`}</span>
+                <span style={{ color:'#00c9c8', fontWeight:700 }}>{progress}%</span>
+              </div>
+              <div style={{ height:4, borderRadius:2, background:isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)' }}>
+                <div style={{ height:'100%', borderRadius:2, width:`${progress}%`, background:'linear-gradient(90deg,#00c9c8,#a78bfa)', transition:'width .4s ease' }} />
+              </div>
+              {/* Stage dots */}
+              <div style={{ display:'flex', gap:4, marginTop:8 }}>
+                {Object.entries(STAGE_LABELS).map(([key, val]) => {
+                  const isDone = stageResults.some(r=>r.stage===key);
+                  const isActive = activeStage===key;
+                  return (
+                    <div key={key} title={val.label} style={{ flex:1, height:3, borderRadius:2, background: isDone?'#00c9c8' : isActive?'#a78bfa' : isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)', transition:'background .3s' }} />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!running && !done && stageResults.length === 0 && (
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60%', gap:16, color:DIM }}>
+              <div style={{ fontSize:48 }}>🤖</div>
+              <div style={{ fontSize:'1rem', fontWeight:700, color:TXT }}>333 Agents sẵn sàng</div>
+              <div style={{ fontSize:'0.82rem', textAlign:'center' as const, maxWidth:320, lineHeight:1.6 }}>Chọn preset hoặc nhập campaign brief, nhấn <strong style={{color:'#00c9c8'}}>Chạy Campaign</strong> để khởi động 9 AI agents song song.</div>
+            </div>
+          )}
+
+          {/* Stage results */}
+          {stageResults.map((r, i) => (
+            <div key={i} style={{ marginBottom:16, borderRadius:12, border:`1px solid ${BORDER}`, background:CARD, overflow:'hidden' }}>
+              <div style={{ padding:'10px 16px', borderBottom:`1px solid ${BORDER}`, display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ fontSize:16 }}>{STAGE_LABELS[r.stage]?.icon}</span>
+                <span style={{ fontWeight:700, fontSize:'0.82rem', color:'#00c9c8' }}>{STAGE_LABELS[r.stage]?.label}</span>
+                {r.metrics && Object.entries(r.metrics).slice(0,2).map(([k,v]) => (
+                  <span key={k} style={{ marginLeft:'auto', padding:'2px 8px', borderRadius:20, background:'rgba(0,201,200,.1)', color:'#00c9c8', fontSize:'0.65rem', fontWeight:700 }}>
+                    {String(v)}
+                  </span>
+                ))}
+              </div>
+              <div style={{ padding:'12px 16px', fontSize:'0.82rem', color:isDark?'#b0cce8':'#2a3d52', lineHeight:1.8, whiteSpace:'pre-wrap' as const }}>
+                {r.content.replace(/\*\*(.*?)\*\*/g, '$1')}
+              </div>
+            </div>
+          ))}
+
+          {/* Active stage spinner */}
+          {running && activeStage && (
+            <div style={{ padding:'14px 16px', borderRadius:12, border:`1px solid rgba(167,139,250,.3)`, background:'rgba(167,139,250,.06)', display:'flex', alignItems:'center', gap:12 }}>
+              <div style={{ width:8, height:8, borderRadius:'50%', background:'#a78bfa', flexShrink:0, animation:'pulse 1s infinite' }} />
+              <span style={{ fontSize:'0.82rem', color:'#a78bfa' }}>{STAGE_LABELS[activeStage]?.icon} <strong>{STAGE_LABELS[activeStage]?.label}</strong> đang xử lý...</span>
+            </div>
+          )}
+
+          <div ref={resultEndRef} />
+        </div>
+      </div>
+      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }`}</style>
+    </div>
+  );
+}
+
 /* ─── Bald Robot Logo SVG ─── */
 function RobotLogo({ size=44 }:{size?:number}) {
   return (
@@ -236,7 +479,7 @@ function RobotLogo({ size=44 }:{size?:number}) {
 }
 
 export default function Agents() {
-  const { user } = useAuth() as { user:{role?:string; email?:string}|null };
+  const { user, token } = useAuth() as { user:{role?:string; email?:string}|null; token:string|null };
   const { isDark, toggleTheme } = useTheme();
   const { locale, setLocale, t } = useI18n();
   const [langOpen, setLangOpen] = useState(false);
@@ -258,6 +501,7 @@ export default function Agents() {
   const [activeGroup, setActiveGroup] = useState<GroupId>('research');
   const [selAgent, setSelAgent] = useState<AgentDef|null>(null);
   const [upgradeAgent, setUpgradeAgent] = useState<AgentDef|null>(null);
+  const [showRunner, setShowRunner] = useState(false);
 
   // Groups relevant to current audience
   const visibleGroups = GROUPS.filter(g=>g.audiences.includes(audience));
@@ -309,6 +553,14 @@ export default function Agents() {
             <span style={{fontSize:'0.68rem',color:TEXT_DIM,marginRight:4}}>
               <span style={{fontWeight:700,color:'#00c9c8',fontSize:'0.88rem'}}>{AGENTS.filter(a=>a.audiences.includes(audience)).reduce((sum,a)=>sum+a.count,0)}</span> agents
             </span>
+
+            {/* Campaign Runner button — only for full access */}
+            {hasFullAccess && (
+              <button onClick={()=>setShowRunner(true)}
+                style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:8,border:'1px solid rgba(0,201,200,.4)',background:'rgba(0,201,200,.08)',color:'#00c9c8',cursor:'pointer',fontSize:'0.72rem',fontWeight:700,whiteSpace:'nowrap' as const,flexShrink:0}}>
+                🚀 Chạy Campaign
+              </button>
+            )}
 
             {/* Language toggle */}
             <div style={{position:'relative'}}>
@@ -431,6 +683,9 @@ export default function Agents() {
 
       {/* Upgrade modal */}
       {upgradeAgent&&<UpgradeModal agent={upgradeAgent} onClose={()=>setUpgradeAgent(null)}/>}
+
+      {/* Campaign Runner overlay */}
+      {showRunner&&<CampaignRunner token={token} isDark={isDark} onClose={()=>setShowRunner(false)}/>}
     </>
   );
 }
