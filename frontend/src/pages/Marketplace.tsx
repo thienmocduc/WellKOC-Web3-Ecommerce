@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useI18n } from '@hooks/useI18n';
 import { useAuth } from '@hooks/useAuth';
@@ -84,8 +84,9 @@ export default function Marketplace() {
   const { t } = useI18n();
   const { token } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState('all');
+  const [activeCategory, setActiveCategory] = useState(searchParams.get('cat') || 'all');
   const [sortBy, setSortBy] = useState('newest');
   const [dppOnly, setDppOnly] = useState(false);
   const [hoveredProduct, setHoveredProduct] = useState<string | null>(null);
@@ -132,6 +133,13 @@ export default function Marketplace() {
       setLoading(false);
     }
   }, [activeCategory, dppOnly, search, sortBy]);
+
+  // Sync activeCategory with URL ?cat= param
+  useEffect(() => {
+    const cat = searchParams.get('cat');
+    setActiveCategory(cat || 'all');
+    setVisibleCount(8);
+  }, [searchParams]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -184,12 +192,12 @@ export default function Marketplace() {
       `}</style>
       <div className="container" style={{ paddingBottom: 80 }}>
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+        <div style={{ textAlign: 'center', marginBottom: 16 }}>
           <div className="section-badge">
             <span className="dot-pulse dot-green"></span>
             MARKETPLACE
           </div>
-          <h1 className="display-lg gradient-text" style={{ marginBottom: 8 }}>
+          <h1 className="display-md gradient-text" style={{ marginBottom: 8 }}>
             {t('marketplace.title')}
           </h1>
           <p style={{ color: 'var(--text-3)', fontSize: '.88rem', maxWidth: 480, margin: '0 auto' }}>
@@ -224,7 +232,15 @@ export default function Marketplace() {
             <button
               key={cat.key}
               className={`feature-tab${activeCategory === cat.key ? ' on' : ''}`}
-              onClick={() => { setActiveCategory(cat.key); setVisibleCount(8); }}
+              onClick={() => {
+                setActiveCategory(cat.key);
+                if (cat.key === 'all') {
+                  setSearchParams({});
+                } else {
+                  setSearchParams({ cat: cat.key });
+                }
+                setVisibleCount(8);
+              }}
               style={{ padding: '8px 18px', borderRadius: 20, fontSize: '.78rem' }}
             >
               {cat.key === 'all' ? t('marketplace.cat.all') : cat.key === 'food' ? t('marketplace.cat.food') : cat.key === 'tech' ? t('marketplace.cat.tech') : cat.key === 'fashion' ? t('marketplace.cat.fashion') : cat.key === 'health' ? t('marketplace.cat.health') : cat.label}

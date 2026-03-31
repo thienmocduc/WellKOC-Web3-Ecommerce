@@ -2648,7 +2648,7 @@ export default function KOC() {
           <div className={`dash-sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`} style={{ width: 240, minWidth: 240 }}>
             {/* Sidebar header — fixed */}
             <div className="dash-sidebar-header">
-              <div style={{ padding: '0 0 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ padding: '0 0 10px', borderBottom: '1px solid var(--border)' }}>
                 <div className="flex gap-8">
                   <div style={{
                     width: 40, height: 40, borderRadius: '50%',

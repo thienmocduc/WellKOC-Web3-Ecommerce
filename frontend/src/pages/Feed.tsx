@@ -137,15 +137,15 @@ const Feed: React.FC = () => {
   };
 
   return (
-    <section className="section" style={{ paddingTop: 'calc(var(--topbar-height) + 48px)' }}>
+    <section className="section" style={{ paddingTop: 'calc(var(--topbar-height) + 20px)' }}>
       <div className="container">
         {/* Section Header */}
-        <div className="section-header">
+        <div className="section-header" style={{ marginBottom: 20 }}>
           <div className="section-badge">
             <span className="dot-pulse dot-indigo"></span>
             {t('feed.badge')}
           </div>
-          <h2 className="display-md gradient-text">
+          <h2 style={{ fontSize: 'clamp(1.2rem, 3vw, 1.8rem)', fontWeight: 800, background: 'var(--chakra-text)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: 4 }}>
             {t('feed.title')}
           </h2>
           <p style={{ color: 'var(--text-3)', fontSize: '.85rem', marginTop: '8px' }}>

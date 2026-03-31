@@ -59,6 +59,72 @@ const NAV_LINKS = [
   { to: '/academy', key: 'nav.academy' },
 ];
 
+/* ── Per-route sub-navigation: replaces global nav when inside a section ── */
+const SUB_NAV_CONFIG: Record<string, Array<{ label: string; to: string; isLive?: boolean }>> = {
+  '/marketplace': [
+    { label: 'Tất cả', to: '/marketplace' },
+    { label: 'Skincare', to: '/marketplace?cat=skincare' },
+    { label: 'Thực phẩm', to: '/marketplace?cat=food' },
+    { label: 'Công nghệ', to: '/marketplace?cat=tech' },
+    { label: 'Thời trang', to: '/marketplace?cat=fashion' },
+    { label: 'Sức khoẻ', to: '/marketplace?cat=health' },
+  ],
+  '/feed': [
+    { label: 'Trending 🔥', to: '/feed' },
+    { label: 'Mới nhất', to: '/feed?sort=new' },
+    { label: 'DPP Review', to: '/feed?filter=dpp' },
+    { label: 'Đang theo dõi', to: '/feed?filter=following' },
+  ],
+  '/live': [
+    { label: 'Đang Live', to: '/live', isLive: true },
+    { label: 'Sắp diễn ra', to: '/live?tab=upcoming' },
+    { label: 'Đã phát', to: '/live?tab=past' },
+  ],
+  '/academy': [
+    { label: 'Tổng quan', to: '/academy' },
+    { label: 'Khóa học', to: '/academy?tab=courses' },
+    { label: 'Thách thức', to: '/academy?tab=challenges' },
+    { label: 'Leaderboard', to: '/academy?tab=leaderboard' },
+    { label: 'Huy hiệu', to: '/academy?tab=badges' },
+  ],
+  '/koc': [
+    { label: 'KOC Hub', to: '/koc' },
+    { label: 'Top KOC', to: '/koc?tab=ranking' },
+    { label: 'Cộng đồng', to: '/koc?tab=community' },
+    { label: 'Creator Token', to: '/koc?tab=token' },
+  ],
+  '/dpp': [
+    { label: 'DPP Scanner', to: '/dpp' },
+    { label: 'Sản phẩm', to: '/dpp?tab=products' },
+    { label: 'Xác minh', to: '/dpp?tab=verify' },
+    { label: 'On-Chain', to: '/dpp?tab=chain' },
+  ],
+  '/agents': [
+    { label: 'Tất cả', to: '/agents' },
+    { label: '333 Agents', to: '/agents?tab=all' },
+    { label: 'Của tôi', to: '/agents?tab=mine' },
+    { label: 'Mua Agents', to: '/agents?tab=market' },
+  ],
+  '/vendor': [
+    { label: 'Tổng quan', to: '/vendor' },
+    { label: 'Sản phẩm', to: '/vendor?tab=products' },
+    { label: 'Đơn hàng', to: '/vendor?tab=orders' },
+    { label: 'Analytics', to: '/vendor?tab=analytics' },
+  ],
+  '/dashboard': [
+    { label: 'Tổng quan', to: '/dashboard' },
+    { label: 'Đơn hàng', to: '/dashboard?tab=orders' },
+    { label: 'Thanh toán', to: '/dashboard?tab=payments' },
+    { label: 'Cài đặt', to: '/dashboard?tab=settings' },
+  ],
+  '/gamification': [
+    { label: 'Tổng quan', to: '/gamification' },
+    { label: 'Leaderboard', to: '/gamification?tab=leaderboard' },
+    { label: 'Thách thức', to: '/gamification?tab=challenges' },
+    { label: 'Huy hiệu', to: '/gamification?tab=badges' },
+  ],
+};
+
 /* ── Drawer section data (organized groups, includes items not in top nav) ── */
 const DRAWER_SECTIONS = [
   {
@@ -193,6 +259,22 @@ export default function MainLayout() {
     ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
     : user?.email ? user.email[0].toUpperCase() : 'U';
 
+  const subNav = SUB_NAV_CONFIG[location.pathname] ?? null;
+
+  function isSubLinkActive(to: string): boolean {
+    const qIdx = to.indexOf('?');
+    const toPath = qIdx >= 0 ? to.slice(0, qIdx) : to;
+    const toQ = qIdx >= 0 ? to.slice(qIdx + 1) : '';
+    if (toPath !== location.pathname) return false;
+    if (!toQ) return !location.search;
+    const lp = new URLSearchParams(toQ);
+    const cp = new URLSearchParams(location.search);
+    for (const [k, v] of lp.entries()) {
+      if (cp.get(k) !== v) return false;
+    }
+    return true;
+  }
+
   // Prevent body scroll when drawer is open
   useEffect(() => {
     document.body.style.overflow = drawerOpen ? 'hidden' : '';
@@ -262,48 +344,96 @@ export default function MainLayout() {
           }}
           className="nav-scroll nav-desktop-only"
         >
-          {NAV_LINKS.map((link) => {
-            const isActive = location.pathname === link.to;
-            return (
-              <Link
-                key={link.to}
-                to={link.to}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  padding: '6px 10px',
-                  borderRadius: 8,
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  color: link.isLive
-                    ? 'var(--rose-400)'
-                    : isActive
-                      ? 'var(--text-1)'
-                      : 'var(--text-3)',
-                  background: isActive ? 'var(--surface-hover)' : 'transparent',
-                  textDecoration: 'none',
-                  whiteSpace: 'nowrap',
-                  transition: 'var(--t-fast)',
-                  flexShrink: 0,
-                }}
-              >
-                {link.isLive && (
-                  <span
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      background: '#ef4444',
-                      display: 'inline-block',
-                      animation: 'pulse 2s infinite',
-                    }}
-                  />
-                )}
-                {t(link.key)}
-              </Link>
-            );
-          })}
+          {subNav ? (
+            /* Sub-nav: page-specific tabs shown when inside a section */
+            subNav.map((link) => {
+              const isActive = isSubLinkActive(link.to);
+              return (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    color: link.isLive
+                      ? 'var(--rose-400)'
+                      : isActive
+                        ? 'var(--primary, #22c55e)'
+                        : 'var(--text-3)',
+                    background: isActive ? 'rgba(34,197,94,.1)' : 'transparent',
+                    textDecoration: 'none',
+                    whiteSpace: 'nowrap',
+                    transition: 'var(--t-fast)',
+                    flexShrink: 0,
+                    borderBottom: isActive ? '2px solid var(--primary, #22c55e)' : '2px solid transparent',
+                  }}
+                >
+                  {link.isLive && (
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background: '#ef4444',
+                        display: 'inline-block',
+                        animation: 'pulse 2s infinite',
+                      }}
+                    />
+                  )}
+                  {link.label}
+                </Link>
+              );
+            })
+          ) : (
+            /* Global nav: shown on home and other pages not in SUB_NAV_CONFIG */
+            NAV_LINKS.map((link) => {
+              const isActive = location.pathname === link.to;
+              return (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    color: link.isLive
+                      ? 'var(--rose-400)'
+                      : isActive
+                        ? 'var(--text-1)'
+                        : 'var(--text-3)',
+                    background: isActive ? 'var(--surface-hover)' : 'transparent',
+                    textDecoration: 'none',
+                    whiteSpace: 'nowrap',
+                    transition: 'var(--t-fast)',
+                    flexShrink: 0,
+                  }}
+                >
+                  {link.isLive && (
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background: '#ef4444',
+                        display: 'inline-block',
+                        animation: 'pulse 2s infinite',
+                      }}
+                    />
+                  )}
+                  {t(link.key)}
+                </Link>
+              );
+            })
+          )}
         </div>
 
         {/* Nav right controls */}
