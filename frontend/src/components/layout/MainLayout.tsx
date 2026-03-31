@@ -246,13 +246,15 @@ export default function MainLayout() {
           </span>
         </Link>
 
+        {/* Spacer pushes nav + right controls to the right */}
+        <div style={{ flex: 1 }} className="nav-mobile-spacer" />
+
         {/* Nav links — hidden on mobile, shown on desktop */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 2,
-            marginLeft: 'auto',
             overflowX: 'auto',
             flexShrink: 0,
             scrollbarWidth: 'none',
@@ -303,9 +305,6 @@ export default function MainLayout() {
             );
           })}
         </div>
-
-        {/* Spacer to push right controls */}
-        <div style={{ flex: 1 }} className="nav-mobile-spacer" />
 
         {/* Nav right controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 12 }}>

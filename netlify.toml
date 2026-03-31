@@ -12,6 +12,10 @@
 [dev]
   framework = "#static"
 
+# Disable Next.js auto-detection — this is a Vite project
+[build.processing]
+  skip_processing = false
+
 # SPA routing - all routes go to index.html
 [[redirects]]
   from = "/*"

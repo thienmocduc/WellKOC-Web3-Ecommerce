@@ -81,29 +81,29 @@ export default function Home() {
             <span className="dot-pulse dot-indigo" /> <span style={{ whiteSpace: 'nowrap' }}>Conscious Community Commerce</span> · Polygon
           </div>
 
-          <h1 className="display-xl" style={{ marginBottom: 12, lineHeight: 1.15, fontSize: 'clamp(2.2rem, 4.5vw, 4rem)' }}>
+          <h1 className="display-xl" style={{ marginBottom: 16, lineHeight: 1.15 }}>
             <span className="gradient-text">{t('home.hero.title')}</span>
           </h1>
 
-          <div style={{ textAlign: 'center', marginBottom: 32, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-            <div style={{ fontStyle: 'italic', fontSize: 'clamp(1.05rem, 2.8vw, 1.5rem)', fontWeight: 700, letterSpacing: '.03em', background: 'var(--chakra-text)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+          <div style={{ textAlign: 'center', marginBottom: 36, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+            <div style={{ fontStyle: 'italic', fontSize: 'clamp(1.25rem, 3.2vw, 2rem)', fontWeight: 700, letterSpacing: '.03em', background: 'var(--chakra-text)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
               "{t('home.hero.line1')}"
             </div>
-            <div style={{ fontStyle: 'italic', fontSize: 'clamp(1.05rem, 2.8vw, 1.5rem)', fontWeight: 700, letterSpacing: '.03em', background: 'var(--chakra-text)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+            <div style={{ fontStyle: 'italic', fontSize: 'clamp(1.25rem, 3.2vw, 2rem)', fontWeight: 700, letterSpacing: '.03em', background: 'var(--chakra-text)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
               "{t('home.hero.line2')}"
             </div>
-            <div style={{ fontStyle: 'italic', fontSize: 'clamp(1.1rem, 3vw, 1.6rem)', fontWeight: 800, letterSpacing: '.03em', background: 'linear-gradient(135deg, #22c55e, #06b6d4, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+            <div style={{ fontStyle: 'italic', fontSize: 'clamp(1.35rem, 3.5vw, 2.1rem)', fontWeight: 800, letterSpacing: '.03em', background: 'linear-gradient(135deg, #22c55e, #06b6d4, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
               "{t('home.hero.line3').replace(/On-Chain/gi, 'On\u2011Chain').replace(/Minh Bạch/gi, 'Minh\u00A0Bạch')}"
             </div>
           </div>
 
           <p
             style={{
-              fontSize: '1.1rem',
+              fontSize: 'clamp(1.1rem, 2vw, 1.35rem)',
               color: 'var(--text-2)',
-              lineHeight: 1.8,
-              maxWidth: 640,
-              margin: '0 auto 36px',
+              lineHeight: 1.9,
+              maxWidth: 680,
+              margin: '0 auto 40px',
             }}
           >
             {t('home.hero.desc.prefix')} <strong style={{ color: 'var(--text-1)' }}>{t('home.hero.desc.buyer')}</strong> ·{' '}
