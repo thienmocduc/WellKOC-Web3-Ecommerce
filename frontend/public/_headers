@@ -1,0 +1,27 @@
+/*
+  # Chặn iframe embedding (chống clone nhúng site)
+  X-Frame-Options: DENY
+  # Chặn MIME sniffing
+  X-Content-Type-Options: nosniff
+  # Không lưu referrer khi chuyển sang site khác
+  Referrer-Policy: strict-origin-when-cross-origin
+  # Chặn các tính năng nhạy cảm không cần thiết
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  # CSP: chỉ cho phép resource từ domain của mình và CDN chính thống
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.wellkoc.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://cdn.wellkoc.com https://*.supabase.co; connect-src 'self' https://wellkoc-api.onrender.com https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none';
+  # Chặn XSS
+  X-XSS-Protection: 1; mode=block
+  # Cache kiểm soát: không cache nội dung nhạy cảm
+  Cache-Control: no-store, max-age=0
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.css
+  Cache-Control: public, max-age=31536000, immutable
+
+/
+  Cache-Control: public, max-age=0, must-revalidate

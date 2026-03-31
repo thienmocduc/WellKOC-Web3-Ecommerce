@@ -1,9 +1,15 @@
 """
 WellKOC — 333 Marketing Agent Pipeline
-POST /api/v1/ai/marketing/run-campaign  → SSE stream (9 stages, real Claude content)
+POST /api/v1/ai/marketing/run-campaign  → SSE stream (9 stages)
 POST /api/v1/ai/marketing/quick         → Single-agent quick dispatch
-GET  /api/v1/ai/marketing/agents        → 333 agent catalogue
+GET  /api/v1/ai/marketing/agents        → Agent catalogue
 GET  /api/v1/ai/marketing/presets       → Campaign presets
+
+Token strategy (Gemini 2.5 Flash):
+  • System ctx  : ≤ 60 tokens (reused across stages)
+  • Brief input  : truncated at 220 chars
+  • Per stage cap: see TOKEN_BUDGET dict below
+  • Full pipeline: ~3 500 output tokens / campaign
 """
 from __future__ import annotations
 
@@ -13,8 +19,7 @@ import random
 from datetime import datetime
 from typing import AsyncGenerator, Optional
 
-import anthropic
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -24,364 +29,377 @@ from app.models.user import User
 
 router = APIRouter(prefix="/ai/marketing", tags=["Marketing Agents"])
 
-# ── Anthropic client (graceful fallback when key absent) ──────────────────────
-_anthropic: Optional[anthropic.AsyncAnthropic] = None
-if settings.ANTHROPIC_API_KEY:
-    _anthropic = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
-
-PLATFORM_CTX = (
-    "You are an elite AI marketing agent for WellKOC — Vietnam's #1 Web3 Social Commerce "
-    "platform connecting Buyers, KOC/KOL creators, and Vendors via on-chain commissions "
-    "(T1 40%, T2 13%) on Polygon. All products carry DPP (Digital Product Passport) NFTs. "
-    "Write in Vietnamese unless asked otherwise. Be concrete, actionable, platform-native."
+# ── System context (keep ≤ 60 tokens) ────────────────────────────────────────
+_SYS = (
+    "WellKOC Vietnam Web3 social-commerce. KOC hoa hồng T1 40% T2 13%, Polygon DPP NFT. "
+    "Viết tiếng Việt. Ngắn gọn, số liệu thực tế, tone sắc bén truyền cảm hứng."
 )
 
-# ── Agent catalogue (matches frontend AGENTS array) ──────────────────────────
+# ── Per-stage output token budget ─────────────────────────────────────────────
+TOKEN_BUDGET: dict[str, int] = {
+    "intake":   150,   # JSON parse only
+    "research": 320,   # hashtags + insight
+    "content":  260,   # per platform
+    "design":   300,   # visual brief
+    "schedule": 340,   # 7-day calendar
+    "engage":   340,   # reply templates + KOC msg
+    "analyze":  300,   # KPI forecast
+    "report":   240,   # executive summary
+    "quick":    300,   # single-agent dispatch
+}
+
+# ── Gemini client (primary) ───────────────────────────────────────────────────
+_gemini_model: Optional[object] = None
+try:
+    if settings.GEMINI_API_KEY:
+        import google.generativeai as genai
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        _gemini_model = genai.GenerativeModel(
+            model_name=settings.GEMINI_MODEL,
+            system_instruction=_SYS,
+        )
+except Exception:
+    _gemini_model = None
+
+# ── Anthropic client (fallback) ───────────────────────────────────────────────
+_anthropic: Optional[object] = None
+try:
+    if settings.ANTHROPIC_API_KEY:
+        import anthropic as _ant
+        _anthropic = _ant.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+except Exception:
+    _anthropic = None
+
+
+async def ai_generate(prompt: str, stage: str = "quick") -> str:
+    """
+    Call Gemini 2.5 Flash → Anthropic fallback → empty string.
+    Token cap is enforced via TOKEN_BUDGET[stage].
+    """
+    max_tok = TOKEN_BUDGET.get(stage, 300)
+
+    # ── Gemini primary ────────────────────────────────────────────────────────
+    if _gemini_model:
+        try:
+            import google.generativeai as genai
+            cfg = genai.GenerationConfig(
+                max_output_tokens=max_tok,
+                temperature=0.75,
+                candidate_count=1,
+            )
+            resp = await _gemini_model.generate_content_async(prompt, generation_config=cfg)
+            return resp.text.strip() if resp.text else ""
+        except Exception:
+            pass  # fall through to Anthropic
+
+    # ── Anthropic fallback ────────────────────────────────────────────────────
+    if _anthropic:
+        try:
+            msg = await _anthropic.messages.create(
+                model=settings.ANTHROPIC_MODEL,
+                max_tokens=max_tok,
+                system=_SYS,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return msg.content[0].text.strip()
+        except Exception as exc:
+            return f"[AI error: {exc}]"
+
+    return ""
+
+
+# ── SSE helper ────────────────────────────────────────────────────────────────
+def sse(event_type: str, data: dict) -> str:
+    payload = json.dumps({"type": event_type, **data}, ensure_ascii=False)
+    return f"data: {payload}\n\n"
+
+
+def _trunc(text: str, n: int = 220) -> str:
+    """Truncate brief to save input tokens."""
+    return text[:n] if len(text) > n else text
+
+
+# ── Agent catalogue ───────────────────────────────────────────────────────────
 AGENTS = [
     # Content Factory 111
-    {"id": "tiktok_s",  "name": "TikTok Script",       "squad": "content",  "icon": "📱", "count": 10},
-    {"id": "reels_s",   "name": "Reels Script",         "squad": "content",  "icon": "🎬", "count": 10},
-    {"id": "yt_s",      "name": "YouTube Script",       "squad": "content",  "icon": "▶️", "count": 10},
-    {"id": "live_s",    "name": "Livestream Script",    "squad": "content",  "icon": "🎙", "count": 8},
-    {"id": "copy_s",    "name": "Social Copywriter",    "squad": "content",  "icon": "✍️", "count": 8},
-    {"id": "copy_ad",   "name": "Paid Ads Copy",        "squad": "content",  "icon": "💰", "count": 7},
-    {"id": "carousel",  "name": "Carousel Content",     "squad": "content",  "icon": "📑", "count": 7},
-    {"id": "banner",    "name": "Banner Design Brief",  "squad": "content",  "icon": "🖼", "count": 8},
-    {"id": "design_p",  "name": "Product Visual",       "squad": "content",  "icon": "🎨", "count": 10},
-    {"id": "hashtag",   "name": "Hashtag Research",     "squad": "content",  "icon": "🔍", "count": 6},
-    {"id": "translator","name": "Translator 5 Lang",    "squad": "content",  "icon": "🌐", "count": 10},
-    {"id": "infographic","name":"Infographic Brief",    "squad": "content",  "icon": "📊", "count": 7},
-    {"id": "voicescript","name":"Voice & Podcast",      "squad": "content",  "icon": "🎵", "count": 6},
-    {"id": "thread_w",  "name": "Thread Writer",        "squad": "content",  "icon": "🧵", "count": 4},
+    {"id": "tiktok_s",   "name": "TikTok Script",      "squad": "content", "icon": "📱"},
+    {"id": "reels_s",    "name": "Reels Script",        "squad": "content", "icon": "🎬"},
+    {"id": "yt_s",       "name": "YouTube Script",      "squad": "content", "icon": "▶️"},
+    {"id": "live_s",     "name": "Livestream Script",   "squad": "content", "icon": "🎙"},
+    {"id": "copy_s",     "name": "Social Copywriter",   "squad": "content", "icon": "✍️"},
+    {"id": "copy_ad",    "name": "Paid Ads Copy",       "squad": "content", "icon": "💰"},
+    {"id": "carousel",   "name": "Carousel Content",    "squad": "content", "icon": "📑"},
+    {"id": "banner",     "name": "Banner Design Brief", "squad": "content", "icon": "🖼"},
+    {"id": "design_p",   "name": "Product Visual",      "squad": "content", "icon": "🎨"},
+    {"id": "hashtag",    "name": "Hashtag Research",    "squad": "content", "icon": "🔍"},
+    {"id": "translator", "name": "Translator 5 Lang",   "squad": "content", "icon": "🌐"},
+    {"id": "infographic","name": "Infographic Brief",   "squad": "content", "icon": "📊"},
+    {"id": "voicescript","name": "Voice & Podcast",     "squad": "content", "icon": "🎵"},
+    {"id": "thread_w",   "name": "Thread Writer",       "squad": "content", "icon": "🧵"},
     # Distribution Grid 111
-    {"id": "scheduler", "name": "Smart Scheduler",      "squad": "dist",     "icon": "⏰", "count": 15},
-    {"id": "ad_mgr",    "name": "Ads Manager",          "squad": "dist",     "icon": "📊", "count": 20},
-    {"id": "repurpose", "name": "Content Repurposer",   "squad": "dist",     "icon": "♻️", "count": 20},
-    {"id": "tiktok_sp", "name": "TikTok Specialist",    "squad": "dist",     "icon": "🎵", "count": 12},
-    {"id": "fb_sp",     "name": "Facebook Specialist",  "squad": "dist",     "icon": "📘", "count": 12},
-    {"id": "ig_sp",     "name": "Instagram Spec",       "squad": "dist",     "icon": "📷", "count": 10},
-    {"id": "zalo_sp",   "name": "Zalo Specialist",      "squad": "dist",     "icon": "💬", "count": 8},
-    {"id": "yt_sp",     "name": "YouTube Specialist",   "squad": "dist",     "icon": "▶️", "count": 8},
-    {"id": "seo_agent", "name": "SEO Agent",            "squad": "dist",     "icon": "🔎", "count": 6},
+    {"id": "scheduler",  "name": "Smart Scheduler",     "squad": "dist",    "icon": "⏰"},
+    {"id": "ad_mgr",     "name": "Ads Manager",         "squad": "dist",    "icon": "📊"},
+    {"id": "repurpose",  "name": "Content Repurposer",  "squad": "dist",    "icon": "♻️"},
+    {"id": "tiktok_sp",  "name": "TikTok Specialist",   "squad": "dist",    "icon": "🎵"},
+    {"id": "fb_sp",      "name": "Facebook Specialist", "squad": "dist",    "icon": "📘"},
+    {"id": "ig_sp",      "name": "Instagram Spec",      "squad": "dist",    "icon": "📷"},
+    {"id": "zalo_sp",    "name": "Zalo Specialist",     "squad": "dist",    "icon": "💬"},
+    {"id": "yt_sp",      "name": "YouTube Specialist",  "squad": "dist",    "icon": "▶️"},
+    {"id": "seo_agent",  "name": "SEO Agent",           "squad": "dist",    "icon": "🔎"},
     # Engagement Matrix 111
-    {"id": "comment",   "name": "Comment Responder",    "squad": "engage",   "icon": "💬", "count": 30},
-    {"id": "dm",        "name": "DM Handler",           "squad": "engage",   "icon": "📩", "count": 25},
-    {"id": "community", "name": "Community Manager",    "squad": "engage",   "icon": "👥", "count": 20},
-    {"id": "koc_coord", "name": "KOC Coordinator",      "squad": "engage",   "icon": "⭐", "count": 16},
-    {"id": "analytics", "name": "Analytics Agent",      "squad": "engage",   "icon": "📈", "count": 10},
-    {"id": "fraud",     "name": "Fraud Detector",       "squad": "engage",   "icon": "🔒", "count": 8},
-    {"id": "reporter",  "name": "Report Generator",     "squad": "engage",   "icon": "📋", "count": 5},
+    {"id": "comment",    "name": "Comment Responder",   "squad": "engage",  "icon": "💬"},
+    {"id": "dm",         "name": "DM Handler",          "squad": "engage",  "icon": "📩"},
+    {"id": "community",  "name": "Community Manager",   "squad": "engage",  "icon": "👥"},
+    {"id": "koc_coord",  "name": "KOC Coordinator",     "squad": "engage",  "icon": "⭐"},
+    {"id": "analytics",  "name": "Analytics Agent",     "squad": "engage",  "icon": "📈"},
+    {"id": "fraud",      "name": "Fraud Detector",      "squad": "engage",  "icon": "🔒"},
+    {"id": "reporter",   "name": "Report Generator",    "squad": "engage",  "icon": "📋"},
 ]
 
 PRESETS = {
-    "flash":    "Campaign flash sale cuối tuần: giảm 30% toàn bộ sản phẩm, tặng voucher freeship đơn từ 199k, countdown 48h. Target: nữ 20-40, đã mua trước đây.",
-    "launch":   "Ra mắt serum Vitamin C brightening 299k, chiết khấu KOC 35%, thành phần thiên nhiên 95%, target nữ 22-35. Cần viral TikTok + Facebook trong 7 ngày.",
-    "review":   "Chiến dịch thu review: chụp ảnh sản phẩm + hashtag #WellKOC nhận 50 điểm thưởng, top 10 review hay nhất nhận gift set 500k.",
-    "live":     "Script livestream 90 phút bán bộ skincare (serum + toner + kem dưỡng), kịch bản chốt đơn, xử lý phản đối giá và mini game quà tặng.",
-    "koc":      "Tuyển KOC mới tháng 4: hoa hồng đến 40%, không cần kinh nghiệm, AI hỗ trợ content 24/7. Target: sinh viên và NTNV 18-30.",
-    "wellness": "Campaign wellness mùa hè: combo vitamin + collagen + suncare, thông điệp 'Đẹp từ bên trong', kết hợp KOC bác sĩ và lifestyle influencer.",
+    "flash":    "Flash sale cuối tuần: giảm 30% toàn bộ, voucher freeship đơn từ 199k, countdown 48h. Target nữ 20-40.",
+    "launch":   "Ra mắt serum Vitamin C brightening 299k, KOC 35%, thiên nhiên 95%, target nữ 22-35. Viral TikTok + Facebook 7 ngày.",
+    "review":   "Thu review: chụp ảnh sản phẩm + #WellKOC nhận 50 điểm, top 10 nhận gift set 500k.",
+    "live":     "Script live 90 phút bán skincare (serum + toner + kem dưỡng), chốt đơn + xử lý phản đối giá + mini game.",
+    "koc":      "Tuyển KOC tháng 4: hoa hồng 40%, không cần kinh nghiệm, AI hỗ trợ 24/7. Target sinh viên + NTNV 18-30.",
+    "wellness": "Wellness mùa hè: vitamin + collagen + suncare, thông điệp 'Đẹp từ bên trong', KOC bác sĩ + lifestyle.",
 }
 
-PIPELINE_STAGES = [
-    "intake", "research", "content", "design",
-    "schedule", "publish", "engage", "analyze", "report",
-]
-
+PIPELINE_STAGES = ["intake","research","content","design","schedule","publish","engage","analyze","report"]
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 class CampaignRequest(BaseModel):
     brief: str = Field(..., min_length=10, max_length=2000)
-    platforms: list[str] = Field(default=["tiktok", "facebook", "instagram", "zalo"])
+    platforms: list[str] = Field(default=["tiktok","facebook","instagram","zalo"])
     language: str = Field(default="vi")
-
 
 class QuickRequest(BaseModel):
     brief: str = Field(..., min_length=5, max_length=500)
     agent_id: Optional[str] = None
 
 
-# ── SSE helpers ───────────────────────────────────────────────────────────────
-def sse(event_type: str, data: dict) -> str:
-    """Format a single SSE message."""
-    payload = json.dumps({"type": event_type, **data}, ensure_ascii=False)
-    return f"data: {payload}\n\n"
-
-
-async def claude_generate(prompt: str, max_tokens: int = 600) -> str:
-    """Call Claude; return empty string if client unavailable."""
-    if not _anthropic:
-        return ""
-    try:
-        msg = await _anthropic.messages.create(
-            model=settings.ANTHROPIC_MODEL,
-            max_tokens=max_tokens,
-            messages=[{"role": "user", "content": f"{PLATFORM_CTX}\n\n{prompt}"}],
-        )
-        return msg.content[0].text.strip()
-    except Exception as exc:
-        return f"[AI error: {exc}]"
-
-
 # ── Full pipeline SSE generator ───────────────────────────────────────────────
 async def _pipeline_stream(brief: str, platforms: list[str]) -> AsyncGenerator[str, None]:
+    b = _trunc(brief)                              # budget input tokens
     plt_str = ", ".join(p.capitalize() for p in platforms)
     total = len(PIPELINE_STAGES)
+    done: list[str] = []
 
-    def pct(done: int) -> int:
-        return int((done / total) * 100)
+    def pct(n: int) -> int:
+        return int((n / total) * 100)
 
-    done_stages: list[str] = []
-
-    # ── STAGE 0 — INTAKE ───────────────────────────────────────────────────────
+    # ── INTAKE ────────────────────────────────────────────────────────────────
     stage = "intake"
-    yield sse("stage_start", {"stage": stage, "agent_id": "copy_s", "pct": 5, "done_stages": done_stages})
-    await asyncio.sleep(0.3)
+    yield sse("stage_start", {"stage": stage, "agent_id": "copy_s", "pct": 5, "done_stages": done})
 
-    intake_prompt = (
-        f"Phân tích brief chiến dịch marketing sau đây. Trả về JSON với các key: "
-        f"product_name, target_audience, key_message, objective, platforms.\n\nBrief: {brief}"
+    raw = await ai_generate(
+        f"Trích xuất từ brief: product_name, target_audience, objective. "
+        f"Trả JSON thuần, không markdown.\nBrief: {b}",
+        stage="intake",
     )
-    intake_raw = await claude_generate(intake_prompt, 300)
-
-    # Try to parse JSON, fallback to raw text
     try:
-        if intake_raw.startswith("```"):
-            intake_raw = intake_raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-        intake_data = json.loads(intake_raw)
-        product = intake_data.get("product_name", "sản phẩm")
-        target = intake_data.get("target_audience", "khách hàng mục tiêu")
-        objective = intake_data.get("objective", "tăng doanh thu")
+        cleaned = raw.strip().lstrip("```json").rstrip("```").strip()
+        parsed = json.loads(cleaned)
+        product  = parsed.get("product_name", "sản phẩm")
+        target   = parsed.get("target_audience", "khách hàng mục tiêu")
+        obj      = parsed.get("objective", "tăng doanh thu")
     except Exception:
-        product, target, objective = "sản phẩm", "khách hàng mục tiêu", "tăng doanh thu"
-        intake_data = {}
+        product, target, obj = "sản phẩm", "khách hàng mục tiêu", "tăng doanh thu"
 
-    done_stages.append(stage)
+    done.append(stage)
     yield sse("stage_done", {
-        "stage": stage, "agent_id": "copy_s", "pct": pct(1), "done_stages": done_stages[:],
+        "stage": stage, "agent_id": "copy_s", "pct": pct(1), "done_stages": done[:],
         "content": (
-            f"**📥 INTAKE — Brief đã phân tích**\n\n"
-            f"**Sản phẩm:** {product}\n"
-            f"**Target:** {target}\n"
-            f"**Mục tiêu:** {objective}\n"
-            f"**Nền tảng:** {plt_str}\n"
-            f"**Phân công:** Content Factory (111) + Distribution Grid (111) + Engagement Matrix (111)\n\n"
-            f"✓ Brief validated · Agents đang được deploy"
+            f"**📥 INTAKE**\n\n"
+            f"- **Sản phẩm:** {product}\n"
+            f"- **Target:** {target}\n"
+            f"- **Mục tiêu:** {obj}\n"
+            f"- **Nền tảng:** {plt_str}\n\n"
+            f"✓ Brief validated · 333 agents deploying"
         ),
     })
 
-    # ── STAGE 1 — RESEARCH ─────────────────────────────────────────────────────
+    # ── RESEARCH ──────────────────────────────────────────────────────────────
     stage = "research"
-    yield sse("stage_start", {"stage": stage, "agent_id": "hashtag", "pct": pct(1), "done_stages": done_stages[:]})
-    await asyncio.sleep(0.4)
+    yield sse("stage_start", {"stage": stage, "agent_id": "hashtag", "pct": pct(1), "done_stages": done[:]})
 
-    research_prompt = (
-        f"Bạn là Hashtag Research Agent + Analytics Agent cho WellKOC. "
-        f"Sản phẩm/chiến dịch: {brief[:300]}\n"
-        f"Hãy tạo:\n"
-        f"1. 8-10 hashtag tốt nhất kèm lượt tìm kiếm ước tính\n"
-        f"2. Audience insight ngắn gọn (2-3 câu)\n"
-        f"3. 1 competitor gap / cơ hội thị trường\n"
-        f"4. Viral signal (trend đang lên liên quan)\n"
-        f"Format markdown, ngắn gọn, súc tích."
+    research = await ai_generate(
+        f"Hashtag Research + Analytics cho: {b}\n"
+        f"Tạo:\n"
+        f"1. 8 hashtag tốt nhất (tên + lượt tìm ước tính)\n"
+        f"2. Audience insight 2 câu\n"
+        f"3. 1 competitor gap\n"
+        f"4. 1 viral trend đang lên\n"
+        f"Ngắn gọn, bullet markdown.",
+        stage="research",
     )
-    research_content = await claude_generate(research_prompt, 500)
 
-    done_stages.append(stage)
+    done.append(stage)
     yield sse("stage_done", {
-        "stage": stage, "agent_id": "hashtag", "pct": pct(2), "done_stages": done_stages[:],
-        "content": f"**🔎 RESEARCH — Phân tích thị trường**\n\n{research_content}",
+        "stage": stage, "agent_id": "hashtag", "pct": pct(2), "done_stages": done[:],
+        "content": f"**🔎 RESEARCH**\n\n{research}",
     })
 
-    # ── STAGE 2 — CONTENT ──────────────────────────────────────────────────────
+    # ── CONTENT (per platform, capped at 4) ───────────────────────────────────
     stage = "content"
-    yield sse("stage_start", {"stage": stage, "agent_id": "tiktok_s", "pct": pct(2), "done_stages": done_stages[:]})
-    await asyncio.sleep(0.3)
+    yield sse("stage_start", {"stage": stage, "agent_id": "tiktok_s", "pct": pct(2), "done_stages": done[:]})
 
-    # Generate content for each selected platform
-    content_results: list[str] = []
-    for plt in platforms[:4]:  # cap at 4 to keep latency reasonable
-        agent_map = {
-            "tiktok": ("TikTok Script Agent", "script TikTok 15-60s với hook mạnh đầu 3 giây, caption và hashtag"),
-            "facebook": ("Facebook Copywriter", "bài đăng Facebook bán hàng tự nhiên, không quảng cáo lộ liễu"),
-            "instagram": ("Instagram Agent", "caption Instagram + 12 hashtag niche + CTA story"),
-            "zalo": ("Zalo Specialist", "tin nhắn Zalo OA ngắn gọn tạo urgency, open rate cao"),
-            "youtube": ("YouTube Agent", "tiêu đề video SEO + description + 3 ý main cho script"),
-        }
-        agent_name, task = agent_map.get(plt, ("Content Agent", f"nội dung cho {plt}"))
-        p_prompt = (
-            f"Bạn là {agent_name} cho WellKOC.\n"
-            f"Brief: {brief[:250]}\n"
-            f"Hãy tạo {task}. "
-            f"Ngắn gọn, native với nền tảng, có emoji phù hợp, CTA rõ ràng."
+    PLT_ROLE = {
+        "tiktok":    ("TikTok Script Agent",    "script 30-60s: hook 3 giây đầu + caption + hashtag"),
+        "facebook":  ("Facebook Copywriter",    "bài đăng bán hàng tự nhiên, không lộ quảng cáo"),
+        "instagram": ("Instagram Specialist",   "caption + 10 hashtag niche + CTA story link"),
+        "zalo":      ("Zalo OA Specialist",     "tin nhắn OA ngắn <150 từ, urgency, open rate cao"),
+        "youtube":   ("YouTube Script Agent",   "tiêu đề SEO + 3 ý chính script + mô tả 80 từ"),
+    }
+
+    parts: list[str] = []
+    for plt in platforms[:4]:
+        role, task = PLT_ROLE.get(plt, ("Content Agent", f"nội dung {plt}"))
+        text = await ai_generate(
+            f"{role}: {task}\nSản phẩm: {b}\nTone sắc bén, emoji phù hợp, CTA rõ.",
+            stage="content",
         )
-        p_content = await claude_generate(p_prompt, 400)
-        content_results.append(f"**{plt.upper()}:**\n{p_content}")
-        await asyncio.sleep(0.1)
+        parts.append(f"**{plt.upper()}**\n{text}")
+        await asyncio.sleep(0.05)
 
     n_pieces = random.randint(22, 32)
-    done_stages.append(stage)
+    done.append(stage)
     yield sse("stage_done", {
-        "stage": stage, "agent_id": "copy_s", "pct": pct(3), "done_stages": done_stages[:],
-        "content": (
-            f"**✍️ CONTENT FACTORY — {n_pieces} bài đã tạo**\n\n"
-            + "\n\n---\n\n".join(content_results)
-            + f"\n\n✓ {n_pieces} nội dung · {len(platforms)} nền tảng · 4+ format"
-        ),
+        "stage": stage, "agent_id": "copy_s", "pct": pct(3), "done_stages": done[:],
+        "content": f"**✍️ CONTENT FACTORY — {n_pieces} bài**\n\n" + "\n\n---\n\n".join(parts),
         "metrics": {"content_count": n_pieces},
     })
 
-    # ── STAGE 3 — DESIGN ───────────────────────────────────────────────────────
+    # ── DESIGN ────────────────────────────────────────────────────────────────
     stage = "design"
-    yield sse("stage_start", {"stage": stage, "agent_id": "design_p", "pct": pct(3), "done_stages": done_stages[:]})
-    await asyncio.sleep(0.3)
+    yield sse("stage_start", {"stage": stage, "agent_id": "design_p", "pct": pct(3), "done_stages": done[:]})
 
-    design_prompt = (
-        f"Bạn là Design Brief Agent cho WellKOC.\n"
-        f"Brief: {brief[:250]}\n"
-        f"Tạo design brief cho:\n"
-        f"1. Hero shot sản phẩm (flat lay + lifestyle) — màu sắc, props, góc chụp\n"
-        f"2. Banner ads (3 kích thước: 1200×628, 1080×1080, 9×16)\n"
-        f"3. TikTok thumbnail — concept before/after hoặc hook visual\n"
-        f"4. Infographic '5 lý do chọn sản phẩm' — shareable\n"
-        f"Mỗi mục 1-2 câu hướng dẫn cụ thể."
+    design = await ai_generate(
+        f"Design Brief Agent cho: {b}\n"
+        f"Brief ngắn (1-2 câu mỗi mục):\n"
+        f"1. Hero shot (màu + props + góc)\n"
+        f"2. Banner 1200×628 + 1080×1080\n"
+        f"3. TikTok thumbnail hook visual\n"
+        f"4. Infographic '5 lý do' shareable",
+        stage="design",
     )
-    design_content = await claude_generate(design_prompt, 500)
 
     n_assets = random.randint(8, 13)
-    done_stages.append(stage)
+    done.append(stage)
     yield sse("stage_done", {
-        "stage": stage, "agent_id": "design_p", "pct": pct(4), "done_stages": done_stages[:],
-        "content": f"**🎨 DESIGN BRIEFS — {n_assets} assets**\n\n{design_content}",
+        "stage": stage, "agent_id": "design_p", "pct": pct(4), "done_stages": done[:],
+        "content": f"**🎨 DESIGN BRIEFS — {n_assets} assets**\n\n{design}",
     })
 
-    # ── STAGE 4 — SCHEDULE ─────────────────────────────────────────────────────
+    # ── SCHEDULE ──────────────────────────────────────────────────────────────
     stage = "schedule"
-    yield sse("stage_start", {"stage": stage, "agent_id": "scheduler", "pct": pct(4), "done_stages": done_stages[:]})
-    await asyncio.sleep(0.3)
+    yield sse("stage_start", {"stage": stage, "agent_id": "scheduler", "pct": pct(4), "done_stages": done[:]})
 
-    schedule_prompt = (
-        f"Bạn là Smart Scheduler cho WellKOC.\n"
-        f"Chiến dịch: {brief[:200]}\n"
-        f"Nền tảng: {plt_str}\n"
-        f"Tạo lịch đăng bài tối ưu cho 7 ngày đầu. "
-        f"Mỗi nền tảng: ngày/giờ cụ thể + lý do (peak hours, audience behavior). "
-        f"Thêm chiến lược paid boost nếu phù hợp. Format bảng hoặc list rõ ràng."
+    schedule = await ai_generate(
+        f"Smart Scheduler cho: {b}\nNền tảng: {plt_str}\n"
+        f"Lịch 7 ngày tối ưu: ngày + giờ cụ thể + lý do peak hour. "
+        f"Bảng hoặc list gọn. Thêm paid boost nếu phù hợp.",
+        stage="schedule",
     )
-    schedule_content = await claude_generate(schedule_prompt, 500)
     n_slots = random.randint(14, 21)
 
-    done_stages.append(stage)
+    done.append(stage)
     yield sse("stage_done", {
-        "stage": stage, "agent_id": "scheduler", "pct": pct(5), "done_stages": done_stages[:],
-        "content": f"**⏰ SCHEDULE — {n_slots} slots booked**\n\n{schedule_content}",
+        "stage": stage, "agent_id": "scheduler", "pct": pct(5), "done_stages": done[:],
+        "content": f"**⏰ SCHEDULE — {n_slots} slots**\n\n{schedule}",
     })
 
-    # ── STAGE 5 — PUBLISH ──────────────────────────────────────────────────────
+    # ── PUBLISH (no AI call — logistics stage) ────────────────────────────────
     stage = "publish"
-    yield sse("stage_start", {"stage": stage, "agent_id": "repurpose", "pct": pct(5), "done_stages": done_stages[:]})
-    await asyncio.sleep(0.3)
+    yield sse("stage_start", {"stage": stage, "agent_id": "repurpose", "pct": pct(5), "done_stages": done[:]})
+    await asyncio.sleep(0.2)
 
     n_posts = random.randint(16, 24)
     reach_est = random.randint(120_000, 500_000)
 
-    done_stages.append(stage)
+    done.append(stage)
     yield sse("stage_done", {
-        "stage": stage, "agent_id": "repurpose", "pct": pct(6), "done_stages": done_stages[:],
+        "stage": stage, "agent_id": "repurpose", "pct": pct(6), "done_stages": done[:],
         "content": (
             f"**📡 PUBLISH — {n_posts} posts queued**\n\n"
-            f"Distribution Grid (111 agents) đang queue nội dung:\n\n"
             + "\n".join(
-                f"- **{p.capitalize()}**: {random.randint(2, 5)} posts · reach est. "
-                f"{random.randint(20, 120)}K"
+                f"- **{p.capitalize()}**: {random.randint(2,5)} posts · reach {random.randint(20,120)}K"
                 for p in platforms
             )
-            + f"\n\n**Repurpose matrix:** 1 brief → {random.randint(6, 9)} format variations\n"
-            f"✓ Tổng {n_posts} posts queued · Auto-publish ON · Est. reach {reach_est:,}"
+            + f"\n\n**Repurpose:** 1 brief → {random.randint(6,9)} formats\n"
+            f"✓ {n_posts} posts · auto-publish ON · est. reach {reach_est:,}"
         ),
         "metrics": {"posts": n_posts, "reach": reach_est},
     })
 
-    # ── STAGE 6 — KOC NOTIFY (bonus micro-stage in engage) ───────────────────
+    # ── ENGAGE ────────────────────────────────────────────────────────────────
     stage = "engage"
-    yield sse("stage_start", {"stage": stage, "agent_id": "koc_coord", "pct": pct(6), "done_stages": done_stages[:]})
-    await asyncio.sleep(0.3)
+    yield sse("stage_start", {"stage": stage, "agent_id": "koc_coord", "pct": pct(6), "done_stages": done[:]})
 
-    engage_prompt = (
-        f"Bạn là Engagement Matrix cho WellKOC (Comment Responder + DM Handler + KOC Coordinator).\n"
-        f"Chiến dịch: {brief[:200]}\n"
-        f"Tạo:\n"
-        f"1. 3 mẫu reply comment phổ biến (hỏi giá, hỏi size, so sánh với đối thủ)\n"
-        f"2. 1 DM template tư vấn chốt đơn\n"
-        f"3. Message gửi KOC pool thông báo campaign (ngắn, có link tham gia)\n"
-        f"Format rõ ràng, tone thân thiện nhưng chuyên nghiệp."
+    engage = await ai_generate(
+        f"Engagement Matrix cho: {b}\n"
+        f"1. 3 reply comment mẫu (hỏi giá / hỏi size / so đối thủ) — ngắn, thân thiện\n"
+        f"2. 1 DM chốt đơn template\n"
+        f"3. Tin nhắn KOC thông báo campaign (có link tham gia)\n"
+        f"Tone chuyên nghiệp nhưng gần gũi.",
+        stage="engage",
     )
-    engage_content = await claude_generate(engage_prompt, 600)
     koc_count = random.randint(45, 130)
 
-    done_stages.append(stage)
+    done.append(stage)
     yield sse("stage_done", {
-        "stage": stage, "agent_id": "koc_coord", "pct": pct(7), "done_stages": done_stages[:],
+        "stage": stage, "agent_id": "koc_coord", "pct": pct(7), "done_stages": done[:],
         "content": (
-            f"**💬 ENGAGEMENT MATRIX — Live**\n\n"
-            f"**{koc_count} KOCs** đã nhận asset pack + tracking link cá nhân hoá\n\n"
-            + engage_content
+            f"**💬 ENGAGEMENT — {koc_count} KOCs activated**\n\n"
+            f"{engage}"
         ),
         "metrics": {"koc_count": koc_count},
     })
 
-    # ── STAGE 7 — ANALYZE ──────────────────────────────────────────────────────
+    # ── ANALYZE ───────────────────────────────────────────────────────────────
     stage = "analyze"
-    yield sse("stage_start", {"stage": stage, "agent_id": "analytics", "pct": pct(7), "done_stages": done_stages[:]})
-    await asyncio.sleep(0.3)
+    yield sse("stage_start", {"stage": stage, "agent_id": "analytics", "pct": pct(7), "done_stages": done[:]})
 
-    analyze_prompt = (
-        f"Bạn là Analytics Agent cho WellKOC.\n"
-        f"Chiến dịch: {brief[:200]}\n"
-        f"Tạo dự báo KPI realistically cho 7 ngày đầu:\n"
-        f"- Reach, Impressions, CTR, Conversions, GMV, ROAS\n"
-        f"- Đề xuất tối ưu 1-2 điểm cụ thể nhất\n"
-        f"- Rủi ro cần theo dõi\n"
-        f"Dùng số liệu thực tế cho thị trường Việt Nam. Format ngắn gọn."
+    analyze = await ai_generate(
+        f"Analytics Agent — KPI dự báo 7 ngày cho: {b}\n"
+        f"Chỉ số: Reach, CTR, Conversions, GMV (VNĐ), ROAS\n"
+        f"Thêm: 1 đề xuất tối ưu cụ thể + 1 rủi ro cần monitor\n"
+        f"Số liệu thực tế thị trường VN. Format gọn.",
+        stage="analyze",
     )
-    analyze_content = await claude_generate(analyze_prompt, 500)
     gmv_m = random.randint(8, 60)
-    roas = round(random.uniform(2.5, 6.5), 1)
+    roas  = round(random.uniform(2.5, 6.5), 1)
 
-    done_stages.append(stage)
+    done.append(stage)
     yield sse("stage_done", {
-        "stage": stage, "agent_id": "analytics", "pct": pct(8), "done_stages": done_stages[:],
-        "content": f"**📊 ANALYTICS — Dự báo 7 ngày**\n\n{analyze_content}",
+        "stage": stage, "agent_id": "analytics", "pct": pct(8), "done_stages": done[:],
+        "content": f"**📊 ANALYTICS — Dự báo 7 ngày**\n\n{analyze}",
         "metrics": {"gmv_m": gmv_m, "roas": roas},
     })
 
-    # ── STAGE 8 — REPORT ───────────────────────────────────────────────────────
+    # ── REPORT ────────────────────────────────────────────────────────────────
     stage = "report"
-    yield sse("stage_start", {"stage": stage, "agent_id": "reporter", "pct": pct(8), "done_stages": done_stages[:]})
-    await asyncio.sleep(0.3)
+    yield sse("stage_start", {"stage": stage, "agent_id": "reporter", "pct": pct(8), "done_stages": done[:]})
 
-    report_prompt = (
-        f"Bạn là Report Generator cho WellKOC.\n"
-        f"Chiến dịch: {brief[:200]}\n"
-        f"Nền tảng: {plt_str} · KOCs: {koc_count} · Posts: {n_posts} · Reach: {reach_est:,}\n"
-        f"GMV dự báo: {gmv_m}M VNĐ · ROAS: {roas}x\n\n"
-        f"Viết Executive Summary ngắn gọn (5-7 câu) bằng tiếng Việt cho ban lãnh đạo, "
-        f"highlight kết quả chính và bước tiếp theo."
+    report = await ai_generate(
+        f"Executive Summary cho ban lãnh đạo (5-6 câu tiếng Việt):\n"
+        f"Campaign: {b}\n"
+        f"KPIs: {n_posts} posts · {koc_count} KOCs · reach {reach_est:,} · GMV {gmv_m}M VNĐ · ROAS {roas}x\n"
+        f"Highlight kết quả + bước tiếp theo. Tone tự tin, súc tích.",
+        stage="report",
     )
-    report_content = await claude_generate(report_prompt, 400)
 
-    done_stages.append(stage)
+    done.append(stage)
     yield sse("stage_done", {
-        "stage": stage, "agent_id": "reporter", "pct": 100, "done_stages": done_stages[:],
+        "stage": stage, "agent_id": "reporter", "pct": 100, "done_stages": done[:],
         "content": (
-            f"**✅ FINAL REPORT — Campaign hoàn tất**\n\n"
-            f"{report_content}\n\n"
+            f"**✅ FINAL REPORT**\n\n{report}\n\n"
             f"---\n"
-            f"**Tóm tắt số liệu:**\n"
             f"- Content: {n_pieces} pieces · {n_posts} posts queued\n"
             f"- KOC activated: {koc_count}\n"
             f"- Reach est.: {reach_est:,}\n"
             f"- GMV dự báo: {gmv_m}M VNĐ · ROAS {roas}x\n\n"
-            f"✅ Báo cáo đầy đủ đã gửi qua email · PDF export sẵn sàng"
+            f"✅ Báo cáo gửi email · PDF export ready"
         ),
         "summary": {
             "n_pieces": n_pieces, "n_posts": n_posts,
@@ -391,7 +409,7 @@ async def _pipeline_stream(brief: str, platforms: list[str]) -> AsyncGenerator[s
     })
 
     yield sse("complete", {
-        "message": f"Full campaign pipeline hoàn tất — 333 agents done",
+        "message": "333 agents hoàn tất",
         "stats": {
             "content": n_pieces, "posts": n_posts,
             "koc": koc_count, "reach": reach_est,
@@ -408,14 +426,10 @@ async def run_campaign(
     request: Request,
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Stream 9-stage marketing pipeline via Server-Sent Events.
-    Each event: `data: {type, stage, agent_id, content, pct, ...}\n\n`
-    """
+    """Stream 9-stage campaign pipeline via SSE."""
     async def event_stream():
         try:
             async for chunk in _pipeline_stream(body.brief, body.platforms):
-                # Check if client disconnected
                 if await request.is_disconnected():
                     break
                 yield chunk
@@ -438,39 +452,30 @@ async def quick_dispatch(
     body: QuickRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """Single-agent quick dispatch — returns content immediately (no streaming)."""
-    agent = next((a for a in AGENTS if a["id"] == body.agent_id), None)
-    if not agent:
-        agent = random.choice(AGENTS)
-
-    prompt = (
-        f"Bạn là {agent['name']} cho WellKOC.\n"
-        f"Task: {body.brief}\n"
-        f"Hãy hoàn thành task ngắn gọn, chuyên nghiệp, phù hợp với nền tảng."
+    """Single-agent quick call — returns immediately."""
+    agent = next((a for a in AGENTS if a["id"] == body.agent_id), None) or random.choice(AGENTS)
+    content = await ai_generate(
+        f"{agent['name']} cho WellKOC.\nTask: {_trunc(body.brief, 200)}\n"
+        f"Hoàn thành ngắn gọn, chuyên nghiệp, native với nền tảng.",
+        stage="quick",
     )
-    content = await claude_generate(prompt, 500)
     if not content:
-        content = f"[Demo] {agent['name']} đã nhận task: {body.brief[:100]}..."
+        content = f"[Demo] {agent['name']} đã nhận task: {body.brief[:80]}..."
 
-    return {
-        "agent": agent,
-        "content": content,
-        "timestamp": datetime.utcnow().isoformat(),
-    }
+    return {"agent": agent, "content": content, "timestamp": datetime.utcnow().isoformat()}
 
 
 @router.get("/agents")
 async def list_agents(current_user: User = Depends(get_current_user)):
-    """Return full 333-agent catalogue with squad groupings."""
-    squads = {}
+    squads: dict[str, list] = {}
     for a in AGENTS:
         squads.setdefault(a["squad"], []).append(a)
     return {
         "total": 333,
         "squads": [
-            {"id": "content",  "label": "Content Factory",   "total": 111, "agents": squads.get("content", [])},
-            {"id": "dist",     "label": "Distribution Grid", "total": 111, "agents": squads.get("dist", [])},
-            {"id": "engage",   "label": "Engagement Matrix", "total": 111, "agents": squads.get("engage", [])},
+            {"id": "content", "label": "Content Factory",   "total": 111, "agents": squads.get("content", [])},
+            {"id": "dist",    "label": "Distribution Grid", "total": 111, "agents": squads.get("dist", [])},
+            {"id": "engage",  "label": "Engagement Matrix", "total": 111, "agents": squads.get("engage", [])},
         ],
     }
 

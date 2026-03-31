@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@hooks/useAuth';
 import { useI18n } from '@hooks/useI18n';
 
@@ -52,6 +52,7 @@ export default function Register() {
   const { t } = useI18n();
   const { registerAsync } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [step, setStep] = useState<Step>(1);
   const [selectedRole, setSelectedRole] = useState<RoleOption | null>(null);
@@ -70,7 +71,8 @@ export default function Register() {
   // KOC fields
   const [socialChannel, setSocialChannel] = useState('');
   const [followers, setFollowers] = useState('');
-  const [referralCode, setReferralCode] = useState('');
+  // Pre-fill referral code from URL ?ref= param
+  const [referralCode, setReferralCode] = useState(() => searchParams.get('ref') || '');
 
   // Vendor fields
   const [shopName, setShopName] = useState('');
@@ -387,6 +389,14 @@ export default function Register() {
                     </div>
                   </div>
 
+                  {/* Referral code — show for all roles, required if from ref link */}
+                  {(referralCode || selectedRole) && (
+                    <div>
+                      <label style={labelStyle}>{t('register.referralCode')} {referralCode && <span style={{ color: 'var(--c4-500)', fontSize: '.7rem' }}>✓ Đã gắn mã giới thiệu</span>}</label>
+                      <input type="text" placeholder="WK-XXXXX" value={referralCode} onChange={e => setReferralCode(e.target.value)} style={{ ...inputStyle, ...(referralCode ? { borderColor: 'var(--c4-500)', background: 'rgba(34,197,94,.05)' } : {}) }} />
+                    </div>
+                  )}
+
                   {selectedRole === 'koc' && (
                     <>
                       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
@@ -404,10 +414,6 @@ export default function Register() {
                       <div>
                         <label style={labelStyle}>{t('register.followers')}</label>
                         <input type="text" placeholder="VD: 10,000" value={followers} onChange={e => setFollowers(e.target.value)} style={inputStyle} />
-                      </div>
-                      <div>
-                        <label style={labelStyle}>{t('register.referralCode')}</label>
-                        <input type="text" placeholder="WK-XXXXX" value={referralCode} onChange={e => setReferralCode(e.target.value)} style={inputStyle} />
                       </div>
                     </>
                   )}

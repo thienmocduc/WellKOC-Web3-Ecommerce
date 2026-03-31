@@ -1,7 +1,14 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import MainLayout from '@components/layout/MainLayout';
 import { useAuth } from '@hooks/useAuth';
+
+/* ── /join?ref=xxx → /register?ref=xxx redirect ── */
+function JoinRedirect() {
+  const [searchParams] = useSearchParams();
+  const ref = searchParams.get('ref');
+  return <Navigate to={ref ? `/register?ref=${ref}` : '/register'} replace />;
+}
 
 /* ── Auth guard at route level ── */
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -87,6 +94,7 @@ export default function App() {
         {/* Auth pages — outside MainLayout */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/join" element={<JoinRedirect />} />
         <Route path="/auth/vneid/callback" element={<VNeIDCallback />} />
 
         {/* Admin routes — outside MainLayout (own layout) */}

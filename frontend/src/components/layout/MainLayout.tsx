@@ -5,6 +5,7 @@ import { useTheme } from '@hooks/useTheme';
 import { useI18n, LANGUAGES } from '@hooks/useI18n';
 import type { Locale } from '@hooks/useI18n';
 import { useAuth } from '@hooks/useAuth';
+import ChatWidget from '@components/ChatWidget';
 
 /* ── WK Logo SVG — Brand chuẩn từ Design System ── */
 function WKLogo({ size = 38 }: { size?: number }) {
@@ -98,12 +99,6 @@ const SUB_NAV_CONFIG: Record<string, Array<{ label: string; to: string; isLive?:
     { label: 'Sản phẩm', to: '/dpp?tab=products' },
     { label: 'Xác minh', to: '/dpp?tab=verify' },
     { label: 'On-Chain', to: '/dpp?tab=chain' },
-  ],
-  '/agents': [
-    { label: 'Tất cả', to: '/agents' },
-    { label: '333 Agents', to: '/agents?tab=all' },
-    { label: 'Của tôi', to: '/agents?tab=mine' },
-    { label: 'Mua Agents', to: '/agents?tab=market' },
   ],
   '/vendor': [
     { label: 'Tổng quan', to: '/vendor' },
@@ -240,7 +235,7 @@ export default function MainLayout() {
 
   // Debounce navSearch → update URL ?q= param
   useEffect(() => {
-    const SEARCH_ROUTES = ['/marketplace', '/feed', '/academy', '/agents', '/koc'];
+    const SEARCH_ROUTES = ['/marketplace', '/feed', '/academy', '/koc'];
     if (!SEARCH_ROUTES.includes(location.pathname)) return;
     const timer = setTimeout(() => {
       const params = new URLSearchParams(location.search);
@@ -283,6 +278,7 @@ export default function MainLayout() {
     : user?.email ? user.email[0].toUpperCase() : 'U';
 
   const subNav = SUB_NAV_CONFIG[location.pathname] ?? null;
+  const isAgentsPage = location.pathname === '/agents';
 
   function isSubLinkActive(to: string): boolean {
     const qIdx = to.indexOf('?');
@@ -304,28 +300,37 @@ export default function MainLayout() {
     return () => { document.body.style.overflow = ''; };
   }, [drawerOpen]);
 
+  // Allow Agents page to open the drawer via custom event
+  useEffect(() => {
+    const handler = () => setDrawerOpen(true);
+    window.addEventListener('wellkoc:open-drawer', handler);
+    return () => window.removeEventListener('wellkoc:open-drawer', handler);
+  }, []);
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* ═══ NAVBAR ═══ */}
+      {/* Nav hidden on agents page — Agents.tsx renders its own top bar */}
       <nav
         style={{
           position: 'fixed',
           top: 0,
           left: 0,
           right: 0,
-          height: 64,
+          height: isAgentsPage ? 0 : 64,
           zIndex: 1000,
           background: 'var(--nav-bg)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          borderBottom: '1px solid var(--border)',
-          display: 'flex',
+          borderBottom: isAgentsPage ? 'none' : '1px solid var(--border)',
+          display: isAgentsPage ? 'none' : 'flex',
           alignItems: 'center',
           padding: '0 20px',
+          overflow: 'hidden',
         }}
       >
-        {/* Logo */}
-        <Link
+        {/* Logo — hidden on agents page */}
+        {!isAgentsPage && <Link
           to="/"
           style={{
             display: 'flex',
@@ -349,15 +354,16 @@ export default function MainLayout() {
           >
             WellKOC
           </span>
-        </Link>
+        </Link>}
 
-        {/* Spacer pushes nav + right controls to the right */}
-        <div style={{ flex: 1 }} className="nav-mobile-spacer" />
+        {/* Spacer pushes nav + right controls to the right — hidden on agents page */}
+        {!isAgentsPage && <div style={{ flex: 1 }} className="nav-mobile-spacer" />}
+        {isAgentsPage && <div style={{ flex: 1 }} />}
 
-        {/* Nav links — hidden on mobile, shown on desktop */}
+        {/* Nav links — hidden on mobile + hidden on agents page */}
         <div
           style={{
-            display: 'flex',
+            display: isAgentsPage ? 'none' : 'flex',
             alignItems: 'center',
             gap: 2,
             overflowX: 'auto',
@@ -460,7 +466,7 @@ export default function MainLayout() {
         </div>
 
         {/* Navbar search — only shown on search-enabled subpages */}
-        {subNav && ['/marketplace', '/feed', '/academy', '/agents', '/koc'].includes(location.pathname) && (
+        {subNav && ['/marketplace', '/feed', '/academy', '/koc'].includes(location.pathname) && (
           <div style={{ position: 'relative', flexShrink: 0, marginLeft: 8 }} className="nav-desktop-only">
             <input
               type="text"
@@ -484,8 +490,8 @@ export default function MainLayout() {
 
         {/* Nav right controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 12 }}>
-          {/* Language dropdown */}
-          <div ref={langRef} style={{ position: 'relative' }}>
+          {/* Language dropdown — hidden on agents page */}
+          <div ref={langRef} style={{ position: 'relative', display: isAgentsPage ? 'none' : undefined }}>
             <button
               onClick={() => setLangDropdownOpen(!langDropdownOpen)}
               style={{
@@ -576,7 +582,8 @@ export default function MainLayout() {
             {isDark ? <Sun size={15} /> : <Moon size={15} />}
           </button>
 
-          {/* User menu or Auth buttons */}
+          {/* User menu or Auth buttons — hidden on agents page */}
+          <div style={{ display: isAgentsPage ? 'none' : 'flex', alignItems: 'center', gap: 6 }}>
           {isAuthenticated && user ? (
             <div ref={userMenuRef} style={{ position: 'relative' }}>
               <button
@@ -661,6 +668,7 @@ export default function MainLayout() {
               {t('layout.join')}
             </Link>
           )}
+          </div>{/* /user-auth wrapper */}
 
           {/* Hamburger button */}
           <button
@@ -927,7 +935,7 @@ export default function MainLayout() {
         </div>
       </div>
 
-      {/* ═══ TICKER BAR ═══ */}
+      {/* ═══ TICKER BAR — hidden on agents page ═══ */}
       <div
         style={{
           position: 'fixed',
@@ -939,7 +947,7 @@ export default function MainLayout() {
           background: 'var(--bg-1)',
           borderBottom: '1px solid var(--border)',
           overflow: 'hidden',
-          display: 'flex',
+          display: isAgentsPage ? 'none' : 'flex',
           alignItems: 'center',
         }}
       >
@@ -970,6 +978,14 @@ export default function MainLayout() {
       {/* ═══ MAIN CONTENT ═══ */}
       {(() => {
         const isDashPage = ['/dashboard', '/koc', '/vendor', '/admin'].some(p => location.pathname.startsWith(p));
+        if (isAgentsPage) {
+          // Agents.tsx owns its full viewport (own top bar + drawer trigger)
+          return (
+            <main style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
+              <Outlet />
+            </main>
+          );
+        }
         if (isDashPage) {
           return (
             <main style={{ position: 'fixed', top: 100, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
@@ -984,8 +1000,8 @@ export default function MainLayout() {
         );
       })()}
 
-      {/* ═══ FOOTER — hidden on dashboard pages ═══ */}
-      {!['/dashboard', '/koc', '/vendor', '/admin'].some(p => location.pathname.startsWith(p)) && <footer
+      {/* ═══ FOOTER — hidden on dashboard + agents pages ═══ */}
+      {!isAgentsPage && !['/dashboard', '/koc', '/vendor', '/admin'].some(p => location.pathname.startsWith(p)) && <footer
         style={{
           borderTop: '1px solid var(--border)',
           background: 'var(--bg-1)',
@@ -1121,6 +1137,9 @@ export default function MainLayout() {
           </div>
         </div>
       </footer>}
+
+      {/* ═══ FLOATING CHAT WIDGET ═══ */}
+      <ChatWidget />
 
       {/* ═══ GLOBAL STYLES (injected) ═══ */}
       <style>{`

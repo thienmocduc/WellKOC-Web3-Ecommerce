@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, API_BASE } from '@hooks/useAuth';
+import { ordersApi } from '@lib/api';
 import { useI18n } from '@hooks/useI18n';
 
 /* ── Helpers ─────────────────────────────────────── */
@@ -82,17 +83,7 @@ interface Order {
   payment: string; trackingCode?: string; reviewed?: boolean;
 }
 
-const allOrders: Order[] = [
-  { id: 'ORD-2026-0147', date: '2026-03-25', items: [{ name: 'Trà Ô Long Đài Loan Premium', qty: 2, price: 194500 }], total: 389000, status: 'shipping', payment: 'VNPay', trackingCode: 'VN26032500147' },
-  { id: 'ORD-2026-0143', date: '2026-03-23', items: [{ name: 'Serum Vitamin C 20%', qty: 1, price: 459000 }], total: 459000, status: 'delivered', payment: 'MoMo', reviewed: false },
-  { id: 'ORD-2026-0138', date: '2026-03-21', items: [{ name: 'Cà Phê Arabica Đà Lạt', qty: 1, price: 245000 }], total: 245000, status: 'delivered', payment: 'Crypto', reviewed: true },
-  { id: 'ORD-2026-0129', date: '2026-03-18', items: [{ name: 'Mật Ong Rừng Tây Nguyên', qty: 1, price: 285000 }], total: 285000, status: 'delivered', payment: 'VNPay', reviewed: true },
-  { id: 'ORD-2026-0121', date: '2026-03-15', items: [{ name: 'Bột Collagen Cá Biển', qty: 1, price: 890000 }], total: 890000, status: 'delivered', payment: 'Crypto', reviewed: false },
-  { id: 'ORD-2026-0115', date: '2026-03-12', items: [{ name: 'Dầu Dừa Nguyên Chất Bến Tre', qty: 2, price: 135000 }], total: 270000, status: 'confirmed', payment: 'MoMo' },
-  { id: 'ORD-2026-0108', date: '2026-03-08', items: [{ name: 'Nước Mắm Phú Quốc', qty: 3, price: 95000 }, { name: 'Tiêu Đen Phú Quốc', qty: 1, price: 120000 }], total: 405000, status: 'pending', payment: 'VNPay' },
-  { id: 'ORD-2026-0099', date: '2026-03-04', items: [{ name: 'Kem Chống Nắng SPF50+', qty: 1, price: 520000 }], total: 520000, status: 'cancelled', payment: 'MoMo' },
-  { id: 'ORD-2026-0091', date: '2026-02-28', items: [{ name: 'Trà Hoa Cúc Organic', qty: 1, price: 175000 }], total: 175000, status: 'return', payment: 'VNPay' },
-];
+const allOrders: Order[] = [];
 
 const orderStatusConfig: Record<string, { labelKey: string; badge: string }> = {
   pending: { labelKey: 'koc.orderStatus.pending', badge: 'badge-c7' },
@@ -125,35 +116,22 @@ const savedPaymentMethods = [
 ];
 
 const cryptoBalances = [
-  { token: 'MATIC', amount: '245.50', usd: '$196.40', icon: 'M', color: 'var(--c7-500)' },
-  { token: 'USDT', amount: '1,250.00', usd: '$1,250.00', icon: 'U', color: 'var(--c4-500)' },
-  { token: 'WK', amount: '8,420', usd: '$842.00', icon: 'W', color: 'var(--c6-500)' },
+  { token: 'MATIC', amount: '0', usd: '$0.00', icon: 'M', color: 'var(--c7-500)' },
+  { token: 'USDT', amount: '0', usd: '$0.00', icon: 'U', color: 'var(--c4-500)' },
+  { token: 'WK', amount: '0', usd: '$0.00', icon: 'W', color: 'var(--c6-500)' },
 ];
 
 /* ── WK Pay data ─────────────────────────────────── */
 const wkPayData = {
-  balanceVND: 2450000,
-  balanceWK: 8420,
+  balanceVND: 0,
+  balanceWK: 0,
   wkPrice: 0.10,
-  wkChange24h: +3.2,
-  transactions: [
-    { id: 'WKT-001', type: 'Nạp tiền', source: 'Vietcombank', amount: 1000000, date: '2026-03-24', status: 'success' },
-    { id: 'WKT-002', type: 'Thanh toán', source: 'ORD-2026-0108', amount: -405000, date: '2026-03-08', status: 'success' },
-    { id: 'WKT-003', type: 'Nhận WK Token', source: 'Reward Lv.7', amount: 200, date: '2026-03-20', status: 'success' },
-    { id: 'WKT-004', type: 'Chuyển WK Token', source: 'Tới 0x8a1...f3c2', amount: -50, date: '2026-03-18', status: 'success' },
-    { id: 'WKT-005', type: 'Rút tiền', source: 'Vietcombank', amount: -500000, date: '2026-03-15', status: 'success' },
-  ],
+  wkChange24h: 0,
+  transactions: [] as { id: string; type: string; source: string; amount: number; date: string; status: string }[],
 };
 
 /* ── Favorites ───────────────────────────────────── */
-const favoriteProducts = [
-  { id: 1, name: 'Trà Ô Long Đài Loan Premium', price: 389000, rating: 4.9, reviews: 234, vendor: 'WellKOC Origin', emoji: '🍵', alert: false },
-  { id: 2, name: 'Serum Vitamin C 20%', price: 459000, rating: 4.8, reviews: 189, vendor: 'K-Beauty VN', emoji: '✨', alert: true },
-  { id: 3, name: 'Mật Ong Rừng Tây Nguyên', price: 285000, rating: 4.7, reviews: 156, vendor: 'GreenViet', emoji: '🍯', alert: false },
-  { id: 4, name: 'Cà Phê Arabica Đà Lạt', price: 245000, rating: 4.9, reviews: 312, vendor: 'Đà Lạt Farm', emoji: '☕', alert: true },
-  { id: 5, name: 'Nước Mắm Phú Quốc Truyền Thống', price: 95000, rating: 4.6, reviews: 478, vendor: 'Phú Quốc Authentic', emoji: '🐟', alert: false },
-  { id: 6, name: 'Bột Collagen Cá Biển', price: 890000, rating: 4.5, reviews: 98, vendor: 'Sea Beauty', emoji: '💎', alert: false },
-];
+const favoriteProducts: { id: number; name: string; price: number; rating: number; reviews: number; vendor: string; emoji: string; alert: boolean }[] = [];
 
 /* ═══════════════════════════════════════════════════ */
 /*  KOC PRO DATA                                      */
@@ -161,42 +139,24 @@ const favoriteProducts = [
 
 /* ── KPI data ────────────────────────────────────── */
 const kpiData = [
-  { label: 'Hoa hồng tháng', value: '12.8M₫', delta: '+18%', up: true, color: 'var(--c4-500)' },
-  { label: 'Doanh thu affiliate', value: '45.2M₫', delta: '+23% MoM', up: true, color: 'var(--c5-500)' },
-  { label: 'Conversions', value: '1,247', delta: '+156 tuần', up: true, color: 'var(--c6-500)' },
-  { label: 'Followers', value: '12,847', delta: '+892 tháng', up: true, color: 'var(--c7-500)' },
-  { label: 'XP Points', value: '24,450', delta: 'Level 18', up: true, color: 'var(--gold-400)' },
+  { label: 'Hoa hồng tháng', value: '0₫', delta: '—', up: false, color: 'var(--c4-500)' },
+  { label: 'Doanh thu affiliate', value: '0₫', delta: '—', up: false, color: 'var(--c5-500)' },
+  { label: 'Conversions', value: '0', delta: '—', up: false, color: 'var(--c6-500)' },
+  { label: 'Followers', value: '0', delta: '—', up: false, color: 'var(--c7-500)' },
+  { label: 'XP Points', value: '0', delta: 'Level 1', up: false, color: 'var(--gold-400)' },
 ];
 
 /* ── Overview chart data ─────────────────────────── */
-const monthlyBars = [45, 62, 38, 75, 89, 52, 70, 85, 60, 95, 78, 88];
+const monthlyBars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 const monthLabels = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
 
-const recentActivities = [
-  { time: '10 phút trước', text: 'Đơn hàng #TX-092 xác nhận — hoa hồng +185.000₫', color: 'var(--c4-500)' },
-  { time: '1 giờ trước', text: 'Video "Review Serum C" đạt 5.000 views', color: 'var(--c5-500)' },
-  { time: '3 giờ trước', text: 'Agent Content AI hoàn thành 12 bài viết', color: 'var(--c6-500)' },
-  { time: '5 giờ trước', text: 'Nhận badge "Top KOC Tuần" — +500 XP', color: 'var(--gold-400)' },
-  { time: 'Hôm qua', text: 'Rút 5.000.000₫ về Vietcombank — thành công', color: 'var(--c7-500)' },
-  { time: 'Hôm qua', text: 'Khách hàng mới F1: Nguyễn Thị Mai', color: 'var(--c4-500)' },
-];
+const recentActivities: { time: string; text: string; color: string }[] = [];
 
 /* ── Content posts ───────────────────────────────── */
-const contentPosts = [
-  { id: 1, type: 'review', title: 'Review Trà Ô Long Đài Loan - Hương vị authentic', date: '2026-03-25', views: 3245, likes: 187, comments: 42, revenue: '1.2M₫', emoji: '🍵' },
-  { id: 2, type: 'video', title: 'Unboxing Serum Vitamin C - So sánh 3 loại', date: '2026-03-23', views: 5678, likes: 312, comments: 89, revenue: '2.1M₫', emoji: '🎬' },
-  { id: 3, type: 'review', title: 'Mật ong rừng Tây Nguyên có thật sự organic?', date: '2026-03-21', views: 4123, likes: 256, comments: 67, revenue: '980K₫', emoji: '🍯' },
-  { id: 4, type: 'article', title: 'Top 5 sản phẩm skincare organic tốt nhất 2026', date: '2026-03-18', views: 8945, likes: 523, comments: 134, revenue: '3.5M₫', emoji: '📝' },
-  { id: 5, type: 'video', title: 'Livestream Q&A - Cách bắt đầu với KOC', date: '2026-03-15', views: 12340, likes: 890, comments: 256, revenue: '0₫', emoji: '📺' },
-];
+const contentPosts: { id: number; type: string; title: string; date: string; views: number; likes: number; comments: number; revenue: string; emoji: string }[] = [];
 
 /* ── Campaigns ───────────────────────────────────── */
-const campaigns = [
-  { id: 1, name: 'Spring Sale 2026', brand: 'WellKOC Origin', status: 'active', commission: '20%', earned: '1.2M₫', startDate: '2026-03-01', endDate: '2026-03-31' },
-  { id: 2, name: 'Organic Week', brand: 'GreenViet', status: 'active', commission: '25%', earned: '890K₫', startDate: '2026-03-15', endDate: '2026-03-22' },
-  { id: 3, name: 'Tết Holiday', brand: 'Multiple', status: 'completed', commission: '18%', earned: '3.4M₫', startDate: '2026-01-15', endDate: '2026-02-15' },
-  { id: 4, name: 'Beauty Festival', brand: 'K-Beauty VN', status: 'upcoming', commission: '22%', earned: '—', startDate: '2026-04-01', endDate: '2026-04-15' },
-];
+const campaigns: { id: number; name: string; brand: string; status: string; commission: string; earned: string; startDate: string; endDate: string }[] = [];
 const campaignStatusConfig: Record<string, { labelKey: string; badge: string }> = {
   active: { labelKey: 'koc.campaigns.active', badge: 'badge-c4' },
   completed: { labelKey: 'koc.campaigns.completed', badge: 'badge-c5' },
@@ -204,13 +164,7 @@ const campaignStatusConfig: Record<string, { labelKey: string; badge: string }> 
 };
 
 /* ── Commission data ─────────────────────────────── */
-const commissionData = [
-  { id: 'TX-001', product: 'Trà Ô Long Premium', buyer: 'Nguyễn Văn A', amount: '389.000₫', commission: '70.020₫', rate: '18%', status: 'confirmed', date: '2026-03-25', txHash: '0x1a2b3c4d5e6f7890abcdef1234567890abcdef12' },
-  { id: 'TX-002', product: 'Serum Vitamin C', buyer: 'Trần Thị B', amount: '459.000₫', commission: '100.980₫', rate: '22%', status: 'pending', date: '2026-03-24', txHash: '' },
-  { id: 'TX-003', product: 'Mật Ong Rừng', buyer: 'Lê Văn C', amount: '285.000₫', commission: '42.750₫', rate: '15%', status: 'confirmed', date: '2026-03-24', txHash: '0x7f8g9h0i1j2k3l4m5n6o7p8q9r0s1t2u3v4w5x6y' },
-  { id: 'TX-004', product: 'Cà Phê Arabica', buyer: 'Phạm Thị D', amount: '245.000₫', commission: '49.000₫', rate: '20%', status: 'processing', date: '2026-03-23', txHash: '' },
-  { id: 'TX-005', product: 'Bột Collagen', buyer: 'Hoàng Văn E', amount: '890.000₫', commission: '222.500₫', rate: '25%', status: 'confirmed', date: '2026-03-23', txHash: '0x9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c' },
-];
+const commissionData: { id: string; product: string; buyer: string; amount: string; commission: string; rate: string; status: string; date: string; txHash: string }[] = [];
 const commStatusConfig: Record<string, { labelKey: string; badge: string }> = {
   confirmed: { labelKey: 'koc.commission.confirmed', badge: 'badge-c4' },
   pending: { labelKey: 'koc.commission.pendingReview', badge: 'badge-gold' },
@@ -218,20 +172,10 @@ const commStatusConfig: Record<string, { labelKey: string; badge: string }> = {
 };
 
 /* ── Withdrawal history ──────────────────────────── */
-const withdrawalHistory = [
-  { id: 'W-001', method: 'Vietcombank', amount: '5.000.000₫', fee: '25.000₫', status: 'completed', date: '2026-03-20', note: 'VCB **** 1234' },
-  { id: 'W-002', method: 'MoMo', amount: '2.000.000₫', fee: '10.000₫', status: 'completed', date: '2026-03-15', note: '0909****567' },
-  { id: 'W-003', method: 'USDT (Polygon)', amount: '150 USDT', fee: '0.5 USDT', status: 'completed', date: '2026-03-10', note: '0xA1B2...5678' },
-  { id: 'W-004', method: 'VNPay', amount: '1.500.000₫', fee: '7.500₫', status: 'pending', date: '2026-03-26', note: 'VNPay Wallet' },
-];
+const withdrawalHistory: { id: string; method: string; amount: string; fee: string; status: string; date: string; note: string }[] = [];
 
 /* ── Auto MKT Agents ─────────────────────────────── */
-const mktAgents = [
-  { id: 1, name: 'Content AI Writer', type: 'Content AI', status: 'running', budget: '500.000₫', spent: '320.000₫', schedule: 'Hàng ngày 8:00', impressions: 45200, clicks: 3420, conversions: 187, cost: '320.000₫', roi: '+285%' },
-  { id: 2, name: 'Social Engagement Bot', type: 'Social Bot', status: 'running', budget: '300.000₫', spent: '180.000₫', schedule: '24/7', impressions: 28900, clicks: 2100, conversions: 95, cost: '180.000₫', roi: '+210%' },
-  { id: 3, name: 'Analytics Reporter', type: 'Analytics', status: 'paused', budget: '200.000₫', spent: '150.000₫', schedule: 'Thứ 2 hàng tuần', impressions: 0, clicks: 0, conversions: 0, cost: '150.000₫', roi: 'N/A' },
-  { id: 4, name: 'Email Nurture Flow', type: 'Email AI', status: 'completed', budget: '400.000₫', spent: '400.000₫', schedule: 'Hoàn thành', impressions: 12500, clicks: 1890, conversions: 234, cost: '400.000₫', roi: '+340%' },
-];
+const mktAgents: { id: number; name: string; type: string; status: string; budget: string; spent: string; schedule: string; impressions: number; clicks: number; conversions: number; cost: string; roi: string }[] = [];
 const agentTypes = ['Content AI', 'Analytics', 'Social Bot', 'Email AI', 'SEO Optimizer', 'Ad Manager'];
 const agentStatusConfig: Record<string, { labelKey: string; badge: string }> = {
   running: { labelKey: 'koc.automkt.running', badge: 'badge-c4' },
@@ -240,12 +184,8 @@ const agentStatusConfig: Record<string, { labelKey: string; badge: string }> = {
 };
 
 /* ── Affiliate & CRM ─────────────────────────────── */
-const affiliateLinks = [
-  { id: 1, product: 'Trà Ô Long Premium', link: 'https://wellkoc.vn/r/mh-tra-001', clicks: 1245, conversions: 89, revenue: '4.2M₫' },
-  { id: 2, product: 'Serum Vitamin C', link: 'https://wellkoc.vn/r/mh-serum-002', clicks: 2340, conversions: 156, revenue: '8.9M₫' },
-  { id: 3, product: 'Bột Collagen Fish', link: 'https://wellkoc.vn/r/mh-collagen-003', clicks: 890, conversions: 45, revenue: '2.8M₫' },
-];
-const partnerStats = { f1: 47, f2: 189, totalNetwork: 1245 };
+const affiliateLinks: { id: number; product: string; link: string; clicks: number; conversions: number; revenue: string }[] = [];
+const partnerStats = { f1: 0, f2: 0, totalNetwork: 0 };
 const crmCustomers = [
   { id: 1, name: 'Nguyễn Thị Mai', email: 'mai.nt@gmail.com', orders: 12, totalSpend: '3.450.000₫', lastPurchase: '2026-03-25' },
   { id: 2, name: 'Trần Văn Hùng', email: 'hung.tv@gmail.com', orders: 8, totalSpend: '2.180.000₫', lastPurchase: '2026-03-23' },
@@ -296,44 +236,47 @@ const referralTeam = [
   { name: 'Lý M', role: 'Buyer', orders: 3, active: false },
 ];
 
-/* ── Community ───────────────────────────────────── */
-const communityStats = { totalMembers: 4827, newThisMonth: 342, activeRate: '68.5%' };
-const communityMembers = [
-  { id: 1, name: 'Nguyễn Văn Anh', joinDate: '2026-01-15', tier: 'Gold', purchases: 18, status: 'active' },
-  { id: 2, name: 'Trần Thị Bích', joinDate: '2026-02-08', tier: 'Silver', purchases: 9, status: 'active' },
-  { id: 3, name: 'Lê Hoàng Nam', joinDate: '2025-11-20', tier: 'Platinum', purchases: 45, status: 'active' },
-  { id: 4, name: 'Phạm Minh Tú', joinDate: '2026-03-01', tier: 'Bronze', purchases: 3, status: 'inactive' },
-  { id: 5, name: 'Đỗ Thị Hương', joinDate: '2025-12-10', tier: 'Gold', purchases: 24, status: 'active' },
+/* ── 8 cấp bậc Luân Xa ─────────────────────────── */
+const RANK_TIERS = [
+  { id: 'user',      label: 'Người Dùng',         icon: '🔴', color: '#ef4444', glow: 'rgba(239,68,68,.35)',   chakra: 'Muladhara C1',   bg: 'rgba(239,68,68,.1)'  },
+  { id: 'koc',       label: 'KOC / KOL',           icon: '🟠', color: '#f97316', glow: 'rgba(249,115,22,.35)',  chakra: 'Svadhisthana C2', bg: 'rgba(249,115,22,.1)' },
+  { id: 'amb',       label: 'Đại Sứ',              icon: '🟡', color: '#eab308', glow: 'rgba(234,179,8,.35)',   chakra: 'Manipura C3',    bg: 'rgba(234,179,8,.1)'  },
+  { id: 'silver',    label: 'Đại Sứ Silver',        icon: '🟢', color: '#22c55e', glow: 'rgba(34,197,94,.35)',   chakra: 'Anahata C4',     bg: 'rgba(34,197,94,.1)'  },
+  { id: 'gold',      label: 'Đại Sứ Gold',          icon: '🔵', color: '#3b82f6', glow: 'rgba(59,130,246,.35)',  chakra: 'Vishuddha C5',   bg: 'rgba(59,130,246,.1)' },
+  { id: 'diamond',   label: 'Đại Sứ Diamond',       icon: '🟣', color: '#6366f1', glow: 'rgba(99,102,241,.35)', chakra: 'Ajna C6',        bg: 'rgba(99,102,241,.1)' },
+  { id: 'phoenix',   label: 'Phượng Hoàng',         icon: '💜', color: '#a855f7', glow: 'rgba(168,85,247,.35)',  chakra: 'Sahasrara C7',   bg: 'rgba(168,85,247,.1)' },
+  { id: 'dragon',    label: 'Long Phụng Sum Vầy',   icon: '🌈', color: 'url(#chakraGrad)', glow: 'rgba(168,85,247,.5)', chakra: 'Thiên Long ∞',  bg: 'rgba(168,85,247,.15)', gradient: 'linear-gradient(135deg,#ef4444,#f97316,#eab308,#22c55e,#3b82f6,#6366f1,#a855f7)' },
 ];
+const getRank = (id: string) => RANK_TIERS.find(r => r.id === id) ?? RANK_TIERS[0];
+
+/* ── Community ───────────────────────────────────── */
+const communityStats = { totalMembers: 0, newThisMonth: 0, activeRate: '0%' };
+
+// Populated from real API data
+const communityTeams: {
+  teamNo: number;
+  f1: { id: string; name: string; rank: string; joinDate: string; orders: number; active: boolean };
+  members: { id: string; name: string; rank: string; joinDate: string; orders: number; active: boolean; gen: number }[];
+}[] = [];
 
 /* ── Performance ─────────────────────────────────── */
 const perfKpis = [
-  { label: 'Tổng khách hàng', value: '4,827', color: 'var(--c4-500)' },
-  { label: 'Khách hàng mới', value: '342', color: 'var(--c5-500)' },
-  { label: 'Số người mua hàng', value: '1,892', color: 'var(--c6-500)' },
-  { label: 'Tỷ lệ chuyển đổi', value: '12.3%', color: 'var(--c7-500)' },
-  { label: 'Doanh thu/khách', value: '289.000₫', color: 'var(--gold-400)' },
+  { label: 'Tổng khách hàng', value: '0', color: 'var(--c4-500)' },
+  { label: 'Khách hàng mới', value: '0', color: 'var(--c5-500)' },
+  { label: 'Số người mua hàng', value: '0', color: 'var(--c6-500)' },
+  { label: 'Tỷ lệ chuyển đổi', value: '0%', color: 'var(--c7-500)' },
+  { label: 'Doanh thu/khách', value: '0₫', color: 'var(--gold-400)' },
 ];
 const funnelSteps = [
-  { label: 'Lượt truy cập', value: 48500, pct: 100 },
-  { label: 'Xem sản phẩm', value: 22400, pct: 46 },
-  { label: 'Thêm giỏ hàng', value: 8900, pct: 18 },
-  { label: 'Thanh toán', value: 4827, pct: 10 },
+  { label: 'Lượt truy cập', value: 0, pct: 0 },
+  { label: 'Xem sản phẩm', value: 0, pct: 0 },
+  { label: 'Thêm giỏ hàng', value: 0, pct: 0 },
+  { label: 'Thanh toán', value: 0, pct: 0 },
 ];
 
 /* ── Ranking & Rewards ───────────────────────────── */
-const myRank = { rank: 47, total: 12847, tier: 'Diamond', xp: 24450, revenue: '245.000.000₫' };
-const leaderboard = [
-  { rank: 1, name: 'Trần Khánh Linh', revenue: '1.2B₫', commission: '180M₫', badges: 24, tier: 'Legend' },
-  { rank: 2, name: 'Nguyễn Đức Mạnh', revenue: '890M₫', commission: '134M₫', badges: 21, tier: 'Legend' },
-  { rank: 3, name: 'Phạm Thu Hà', revenue: '720M₫', commission: '108M₫', badges: 19, tier: 'Diamond' },
-  { rank: 4, name: 'Lê Quang Huy', revenue: '650M₫', commission: '97M₫', badges: 18, tier: 'Diamond' },
-  { rank: 5, name: 'Vũ Thị Ngọc', revenue: '580M₫', commission: '87M₫', badges: 17, tier: 'Diamond' },
-  { rank: 6, name: 'Đặng Minh Tuấn', revenue: '510M₫', commission: '76M₫', badges: 15, tier: 'Master' },
-  { rank: 7, name: 'Hoàng Thùy Dung', revenue: '480M₫', commission: '72M₫', badges: 14, tier: 'Master' },
-  { rank: 8, name: 'Bùi Văn Toàn', revenue: '420M₫', commission: '63M₫', badges: 13, tier: 'Master' },
-  { rank: 9, name: 'Ngô Thị Yến', revenue: '380M₫', commission: '57M₫', badges: 12, tier: 'Master' },
-  { rank: 10, name: 'Trương Công Sơn', revenue: '350M₫', commission: '52M₫', badges: 11, tier: 'Master' },
+const myRank = { rank: 0, total: 0, tier: 'Người Dùng', xp: 0, revenue: '0₫' };
+const leaderboard: { rank: number; name: string; revenue: string; commission: string; badges: number; tier: string }[] = [
 ];
 const gamificationBadges = [
   { icon: '🏅', name: 'Đơn Hàng Đầu Tiên', earned: true },
@@ -420,11 +363,7 @@ const settingsSections = [
 ];
 
 /* ── Voucher data ────────────────────────────────── */
-const myVouchers = [
-  { code: 'WELLKOC50', desc: 'Giảm 50.000₫ cho đơn từ 200K', expires: '30/04/2026', used: false },
-  { code: 'FREESHIP', desc: 'Miễn phí vận chuyển', expires: '15/04/2026', used: false },
-  { code: 'DPP20', desc: 'Giảm 20% sản phẩm DPP Verified', expires: '25/04/2026', used: false },
-];
+const myVouchers: { code: string; desc: string; expires: string; used: boolean }[] = [];
 const voucherRedeemOptions = [
   { xp: 50, desc: 'Voucher giảm 20.000₫', minOrder: '100K' },
   { xp: 200, desc: 'Voucher giảm 100.000₫', minOrder: '500K' },
@@ -492,15 +431,18 @@ export default function KOC() {
   const [camps, setCamps] = useState(campaigns);
 
   /* ── Commission balance ─── */
-  const [commBalance, setCommBalance] = useState(8450000);
+  const [commBalance, setCommBalance] = useState(0);
   const [showWithdrawForm, setShowWithdrawForm] = useState(false);
   const [withdrawAmt, setWithdrawAmt] = useState('');
+
+  /* ── Community expanded teams ─── */
+  const [expandedTeams, setExpandedTeams] = useState<Record<number, boolean>>({});
 
   /* ── Vouchers state ─── */
   const [vouchers, setVouchers] = useState(myVouchers);
 
   /* ── XP state (shared across missions/voucher/convert) ─── */
-  const [xp, setXp] = useState(24450);
+  const [xp, setXp] = useState(0);
 
   /* ── Favorites state ─── */
   const [favs, setFavs] = useState(favoriteProducts);
@@ -562,6 +504,63 @@ export default function KOC() {
   /* ── Share link from API ─── */
   const [generatedShareLink, setGeneratedShareLink] = useState('');
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+
+  /* ── Community teams from API ─── */
+  const [communityTeamsData, setCommunityTeamsData] = useState(communityTeams);
+  const [communityStatsData, setCommunityStatsData] = useState(communityStats);
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_BASE}/referral/my-team`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => {
+        // Map API response to communityTeams shape
+        if (data?.direct_referrals && Array.isArray(data.direct_referrals)) {
+          const teams = data.direct_referrals.map((f1: any, idx: number) => ({
+            teamNo: idx + 1,
+            f1: { id: f1.id, name: f1.name || f1.email, rank: f1.role || 'user', joinDate: (f1.created_at || '').slice(0, 10), orders: f1.orders_count || 0, active: f1.is_active !== false },
+            members: (f1.children || []).map((m: any) => ({ id: m.id, name: m.name || m.email, rank: m.role || 'user', joinDate: (m.created_at || '').slice(0, 10), orders: m.orders_count || 0, active: m.is_active !== false, gen: 2 })),
+          }));
+          setCommunityTeamsData(teams);
+          setCommunityStatsData({ totalMembers: data.total_members || teams.length, newThisMonth: data.new_this_month || 0, activeRate: data.active_rate || '0%' });
+        }
+      })
+      .catch(() => {});
+  }, [token]);
+
+  /* ── Commission summary from API ─── */
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_BASE}/commissions/summary`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => {
+        if (data?.total_settled != null) setCommBalance(Number(data.pending_amount ?? 0));
+      })
+      .catch(() => {});
+  }, [token]);
+
+  /* ── Real orders from API ─── */
+  const [ordersLoaded, setOrdersLoaded] = useState(false);
+  useEffect(() => {
+    if (!token || ordersLoaded) return;
+    ordersApi.list({ per_page: 50 }, token)
+      .then(res => {
+        if (res.items?.length) {
+          const mapped = res.items.map((o: any) => ({
+            id: o.order_number || o.id,
+            date: (o.created_at || '').slice(0, 10),
+            items: (o.items || []).map((i: any) => ({ name: i.product_name || i.name, qty: i.quantity, price: i.unit_price })),
+            total: o.total_amount || 0,
+            status: o.status || 'pending',
+            payment: o.payment_method || '—',
+            trackingCode: o.tracking_code,
+            reviewed: o.reviewed,
+          }));
+          setOrders(mapped);
+          setOrdersLoaded(true);
+        }
+      })
+      .catch(() => {});
+  }, [token, ordersLoaded]);
 
   /* ── Affiliate links from API ─── */
   const [affLinksLoaded, setAffLinksLoaded] = useState(false);
@@ -1393,6 +1392,59 @@ export default function KOC() {
           <>
             <h2 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: 20 }}>{t('koc.affiliate.title')}</h2>
 
+            {/* ── Referral Link Section ── */}
+            <div className="card" style={{ padding: 20, marginBottom: 20, background: 'linear-gradient(135deg,rgba(34,197,94,.07),rgba(99,102,241,.07))', border: '1px solid rgba(34,197,94,.2)' }}>
+              <div style={{ fontWeight: 700, fontSize: '.88rem', marginBottom: 14, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: '1.1rem' }}>🔗</span> Link Giới Thiệu Cộng Đồng
+              </div>
+              <div style={{ fontSize: '.75rem', color: 'var(--text-3)', marginBottom: 14 }}>
+                Chia sẻ link này để mời thành viên mới tham gia mạng lưới của bạn. Mỗi F1 bạn giới thiệu sẽ trở thành đầu <strong>1 team</strong> trong cộng đồng.
+              </div>
+              {/* Link display */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <div style={{ flex: 1, padding: '9px 14px', background: 'var(--bg-2)', borderRadius: 8, border: '1px solid var(--border)', fontFamily: 'var(--ff-mono)', fontSize: '.78rem', color: 'var(--c6-300)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {`https://wellkoc.com/join?ref=${userRefCode}`}
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={() => { copyText(`https://wellkoc.com/join?ref=${userRefCode}`); showToast('Đã copy link giới thiệu!'); }}>📋 Copy</button>
+              </div>
+              {/* Mã giới thiệu */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                <span style={{ fontSize: '.72rem', color: 'var(--text-3)' }}>Mã của bạn:</span>
+                <span style={{ fontFamily: 'var(--ff-mono)', fontWeight: 700, fontSize: '.88rem', color: '#22c55e', padding: '2px 10px', background: 'rgba(34,197,94,.1)', borderRadius: 6, border: '1px solid rgba(34,197,94,.3)' }}>{userRefCode}</span>
+                <button className="btn btn-secondary btn-sm" onClick={() => { copyText(userRefCode); showToast('Đã copy mã!'); }}>Copy</button>
+              </div>
+              {/* Share buttons */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {[
+                  { label: '💬 Zalo', color: '#0068ff', bg: 'rgba(0,104,255,.1)' },
+                  { label: '👤 Facebook', color: '#1877f2', bg: 'rgba(24,119,242,.1)' },
+                  { label: '🎵 TikTok', color: '#e91e63', bg: 'rgba(233,30,99,.1)' },
+                  { label: '📸 Instagram', color: '#e4405f', bg: 'rgba(228,64,95,.1)' },
+                  { label: '✈️ Telegram', color: '#0088cc', bg: 'rgba(0,136,204,.1)' },
+                ].map(btn => (
+                  <button key={btn.label} className="btn btn-secondary btn-sm" onClick={() => showToast(`Chia sẻ qua ${btn.label}`)}
+                    style={{ color: btn.color, background: btn.bg, border: `1px solid ${btn.color}44`, fontWeight: 600, fontSize: '.72rem' }}>
+                    {btn.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tier legend */}
+            <div className="card" style={{ padding: '14px 20px', marginBottom: 20 }}>
+              <div style={{ fontWeight: 700, fontSize: '.78rem', marginBottom: 12, color: 'var(--text-2)' }}>📊 8 CẤP BẬC CỘNG ĐỒNG — MÀU LUÂN XA</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {RANK_TIERS.map((r, i) => (
+                  <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 20, background: r.bg, border: `1px solid ${r.gradient ? 'transparent' : r.color}44`, backgroundImage: r.gradient ? undefined : undefined }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: r.gradient ?? r.color, display: 'inline-block', flexShrink: 0, boxShadow: `0 0 6px ${r.glow}` }} />
+                    <span style={{ fontSize: '.68rem', fontWeight: 600, color: r.gradient ? undefined : r.color, background: r.gradient, WebkitBackgroundClip: r.gradient ? 'text' : undefined, WebkitTextFillColor: r.gradient ? 'transparent' : undefined }}>
+                      C{i + 1} · {r.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {serverNotice && (
               <div style={{ padding: '8px 14px', borderRadius: 8, marginBottom: 16, background: 'rgba(251,191,36,.1)', border: '1px solid rgba(251,191,36,.25)', color: '#b45309', fontSize: '.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ animation: 'pulse 1.5s infinite' }}>●</span> {serverNotice}
@@ -1707,11 +1759,12 @@ export default function KOC() {
         return (
           <>
             <h2 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: 20 }}>{t('koc.community.title')}</h2>
+            {/* Stats */}
             <div className="grid-3" style={{ gap: 16, marginBottom: 24 }}>
               {[
-                { label: 'Tổng thành viên', value: communityStats.totalMembers.toLocaleString(), color: 'var(--c4-500)' },
-                { label: 'Thành viên mới tháng này', value: communityStats.newThisMonth.toLocaleString(), color: 'var(--c5-500)' },
-                { label: 'Tỷ lệ hoạt động', value: communityStats.activeRate, color: 'var(--c6-500)' },
+                { label: 'Tổng thành viên', value: communityStatsData.totalMembers.toLocaleString(), color: 'var(--c4-500)' },
+                { label: 'Thành viên mới tháng này', value: communityStatsData.newThisMonth.toLocaleString(), color: 'var(--c5-500)' },
+                { label: 'Tỷ lệ hoạt động', value: communityStatsData.activeRate, color: 'var(--c6-500)' },
               ].map((s, i) => (
                 <div key={i} className="kpi-card">
                   <div className="kpi-label">{s.label}</div>
@@ -1719,43 +1772,116 @@ export default function KOC() {
                 </div>
               ))}
             </div>
-            <div className="grid-4" style={{ gap: 12, marginBottom: 24 }}>
-              {[
-                { label: 'Bài viết cộng đồng', value: '1,247' },
-                { label: 'Bình luận tháng', value: '8,920' },
-                { label: 'Lượt chia sẻ', value: '3,456' },
-                { label: 'Phản hồi tích cực', value: '94.2%' },
-              ].map((m, i) => (
-                <div key={i} style={{ textAlign: 'center', padding: 16, background: 'var(--bg-2)', borderRadius: 8 }}>
-                  <div style={{ fontFamily: 'var(--ff-display)', fontWeight: 800, fontSize: '1rem', color: 'var(--text-1)' }}>{m.value}</div>
-                  <div style={{ fontSize: '.68rem', color: 'var(--text-4)', marginTop: 4 }}>{m.label}</div>
-                </div>
-              ))}
+            {/* Chakra rank legend */}
+            <div className="card" style={{ padding: '12px 16px', marginBottom: 20 }}>
+              <div style={{ fontSize: '.72rem', fontWeight: 700, color: 'var(--text-3)', marginBottom: 8, letterSpacing: '.06em' }}>BẢNG CẤP BẬC LUÂN XA</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {RANK_TIERS.map(r => (
+                  <div key={r.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '3px 10px', borderRadius: 20, fontSize: '.68rem', fontWeight: 600,
+                    background: r.gradient ? 'transparent' : r.bg,
+                    backgroundImage: r.gradient ?? undefined,
+                    border: `1px solid ${r.color === 'url(#chakraGrad)' ? 'transparent' : r.color}44`,
+                    color: r.color === 'url(#chakraGrad)' ? '#fff' : r.color,
+                  }}>
+                    <span>{r.icon}</span>
+                    <span>{r.label}</span>
+                    <span style={{ opacity: .6, fontSize: '.62rem' }}>· {r.chakra}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontWeight: 700, fontSize: '.88rem' }}>Danh Sách Thành Viên</span>
+            {/* Team list */}
+            {communityTeamsData.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-3)', fontSize: '.85rem' }}>
+                Chưa có thành viên trong nhóm. Chia sẻ link giới thiệu để bắt đầu xây dựng team!
               </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.78rem' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                      {['Tên', 'Ngày tham gia', 'Hạng', 'Mua hàng', 'Trạng thái'].map(h => <TH key={h}>{h}</TH>)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {communityMembers.map(m => (
-                      <tr key={m.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <TD bold>{m.name}</TD>
-                        <TD color="var(--text-3)">{m.joinDate}</TD>
-                        <TD><span className={`badge ${m.tier === 'Platinum' ? 'badge-c7' : m.tier === 'Gold' ? 'badge-gold' : m.tier === 'Silver' ? 'badge-c5' : 'badge-c6'}`}>{m.tier}</span></TD>
-                        <TD mono bold>{m.purchases}</TD>
-                        <TD><span className={`badge ${m.status === 'active' ? 'badge-c4' : 'badge-gold'}`}>{m.status === 'active' ? 'Hoạt động' : 'Không HĐ'}</span></TD>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {communityTeamsData.map(team => {
+                const f1Rank = getRank(team.f1.rank);
+                const isOpen = !!expandedTeams[team.teamNo];
+                return (
+                  <div key={team.teamNo} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                    {/* Team header row (F1 = team head) */}
+                    <button
+                      onClick={() => setExpandedTeams(prev => ({ ...prev, [team.teamNo]: !prev[team.teamNo] }))}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      {/* Team number badge */}
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--bg-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.7rem', fontWeight: 800, color: 'var(--text-3)', flexShrink: 0 }}>
+                        {team.teamNo}
+                      </div>
+                      {/* F1 avatar */}
+                      <div style={{
+                        width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '.82rem', fontWeight: 800, color: '#fff',
+                        background: f1Rank.gradient ?? f1Rank.color,
+                        boxShadow: `0 0 8px ${f1Rank.glow}`,
+                      }}>
+                        {team.f1.name[0]}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 700, fontSize: '.88rem', color: 'var(--text-1)' }}>{team.f1.name}</span>
+                          <span style={{ fontSize: '.65rem', fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: f1Rank.bg, color: f1Rank.color }}>{f1Rank.icon} {f1Rank.label}</span>
+                          <span style={{ fontSize: '.65rem', color: 'var(--text-4)' }}>Đầu Team #{team.teamNo}</span>
+                        </div>
+                        <div style={{ fontSize: '.7rem', color: 'var(--text-3)', marginTop: 2 }}>
+                          {team.f1.orders} đơn · Tham gia {team.f1.joinDate}
+                          {' · '}{team.members.length} thành viên bên dưới
+                        </div>
+                      </div>
+                      {/* Expand arrow */}
+                      <div style={{ color: 'var(--text-3)', fontSize: '.85rem', flexShrink: 0, transition: 'transform .2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</div>
+                    </button>
+                    {/* Members list (expandable) */}
+                    {isOpen && (
+                      <div style={{ borderTop: '1px solid var(--border)' }}>
+                        {team.members.map(m => {
+                          const mRank = getRank(m.rank);
+                          return (
+                            <div key={m.id} style={{
+                              display: 'flex', alignItems: 'center', gap: 10,
+                              padding: '10px 16px 10px ' + (m.gen === 3 ? '48px' : '32px'),
+                              borderBottom: '1px solid var(--border)',
+                            }}>
+                              {/* Gen indicator */}
+                              <div style={{ fontSize: '.6rem', color: 'var(--text-4)', flexShrink: 0, width: 24, textAlign: 'right' }}>
+                                F{m.gen}
+                              </div>
+                              {/* Avatar */}
+                              <div style={{
+                                width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '.72rem', fontWeight: 700, color: '#fff',
+                                background: mRank.gradient ?? mRank.color,
+                                opacity: m.active ? 1 : 0.5,
+                              }}>
+                                {m.name[0]}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <span style={{ fontWeight: 600, fontSize: '.82rem', color: m.active ? 'var(--text-1)' : 'var(--text-4)' }}>{m.name}</span>
+                                  <span style={{ fontSize: '.6rem', padding: '1px 6px', borderRadius: 8, background: mRank.bg, color: mRank.color, fontWeight: 600 }}>{mRank.icon} {mRank.label}</span>
+                                  {!m.active && <span style={{ fontSize: '.6rem', color: '#ef4444' }}>Không HĐ</span>}
+                                </div>
+                                <div style={{ fontSize: '.68rem', color: 'var(--text-4)' }}>{m.orders} đơn · {m.joinDate}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </>
         );

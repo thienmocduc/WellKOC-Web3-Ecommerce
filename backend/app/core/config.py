@@ -81,6 +81,11 @@ class Settings(BaseSettings):
     ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
     AI_RATE_LIMIT_PER_MIN: int = 60
 
+    # ── AI / Google Gemini ───────────────────────
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash"          # Flash = cost-efficient
+    GEMINI_FALLBACK_MODEL: str = "gemini-2.0-flash"  # Hard fallback
+
     # ── Storage ─────────────────────────────────
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""

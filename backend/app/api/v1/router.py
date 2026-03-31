@@ -18,6 +18,7 @@ from app.api.v1.endpoints import (
     publisher, fraud,
     events, compliance, analytics,
     verification,
+    chatbot,
 )
 
 api_router = APIRouter()
@@ -50,6 +51,7 @@ api_router.include_router(admin.router)
 api_router.include_router(ai_agents.router)
 api_router.include_router(ai_comments.router)
 api_router.include_router(marketing_campaign.router)
+api_router.include_router(chatbot.router)
 
 # ── Recommendations ──────────────────────────────────────────
 api_router.include_router(recommendations.router)
