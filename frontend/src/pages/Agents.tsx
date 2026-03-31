@@ -100,7 +100,8 @@ function PaywallScreen({ isLoggedIn }: { isLoggedIn: boolean }) {
 
   return (
     <div style={{
-      height:'100%', background:'#05101e', display:'flex', flexDirection:'column',
+      position:'fixed' as const, top:100, left:0, right:0, bottom:0,
+      background:'#05101e', display:'flex', flexDirection:'column',
       alignItems:'center', justifyContent:'center', padding:'0 24px', overflowY:'auto',
       color:'#d4e6ff',
     }}>
@@ -191,7 +192,7 @@ function PaywallScreen({ isLoggedIn }: { isLoggedIn: boolean }) {
 
 /* ─── Main Command Center ─── */
 const s:Record<string,React.CSSProperties>={
-  page:{height:'100%',background:'#05101e',color:'#d4e6ff',fontFamily:'Inter,system-ui,sans-serif',display:'flex',flexDirection:'column',overflow:'hidden'},
+  page:{position:'fixed' as const,top:100,left:0,right:0,bottom:0,background:'#05101e',color:'#d4e6ff',fontFamily:'Inter,system-ui,sans-serif',display:'flex',flexDirection:'column',overflow:'hidden'},
   hero:{background:'linear-gradient(135deg,#071a2e 0%,#0d2137 50%,#071a2e 100%)',borderBottom:'1px solid rgba(0,201,200,.15)',padding:'16px 32px',display:'flex',alignItems:'center',gap:20,flexShrink:0},
   heroIcon:{width:44,height:44,borderRadius:12,background:'linear-gradient(135deg,#00c9c8,#a78bfa)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0},
   heroTitle:{fontSize:'1.3rem',fontWeight:800,background:'linear-gradient(135deg,#00c9c8,#a78bfa)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'},
