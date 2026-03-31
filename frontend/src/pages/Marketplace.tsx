@@ -85,7 +85,7 @@ export default function Marketplace() {
   const { token } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('q') || '');
   const [activeCategory, setActiveCategory] = useState(searchParams.get('cat') || 'all');
   const [sortBy, setSortBy] = useState('newest');
   const [dppOnly, setDppOnly] = useState(false);
@@ -141,6 +141,12 @@ export default function Marketplace() {
     setVisibleCount(8);
   }, [searchParams]);
 
+  // Sync search with URL ?q= param (from navbar search)
+  useEffect(() => {
+    const q = searchParams.get('q') || '';
+    setSearch(q);
+  }, [searchParams]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchProducts();
@@ -183,7 +189,7 @@ export default function Marketplace() {
   const visible = filtered.slice(0, visibleCount);
 
   return (
-    <section style={{ paddingTop: 'calc(var(--topbar-height, 64px) + 24px)', minHeight: '100vh', background: 'var(--bg-0)' }}>
+    <section style={{ paddingTop: 'calc(var(--topbar-height, 64px) + 12px)', minHeight: '100vh', background: 'var(--bg-0)' }}>
       <style>{`
         @keyframes shimmer {
           0% { background-position: 200% 0; }
@@ -191,78 +197,24 @@ export default function Marketplace() {
         }
       `}</style>
       <div className="container" style={{ paddingBottom: 80 }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 16 }}>
-          <div className="section-badge">
-            <span className="dot-pulse dot-green"></span>
-            MARKETPLACE
-          </div>
-          <h1 className="display-lg gradient-text" style={{ marginBottom: 8, whiteSpace: 'nowrap' }}>
-            {t('marketplace.title')}
-          </h1>
-          <p style={{ color: 'var(--text-3)', fontSize: '1rem', maxWidth: 540, margin: '0 auto' }}>
-            {t('marketplace.desc')}
-          </p>
-        </div>
-
-        {/* Search Bar */}
-        <div style={{ maxWidth: 560, margin: '0 auto 24px', position: 'relative' }}>
-          <input
-            className="input-field"
-            type="text"
-            placeholder={t('marketplace.search')}
-            value={search}
-            onChange={e => { setSearch(e.target.value); setVisibleCount(8); }}
-            style={{
-              width: '100%', padding: '14px 16px 14px 44px',
-              borderRadius: 14, fontSize: '.88rem',
-            }}
-          />
-          <span style={{
-            position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)',
-            fontSize: '1rem', color: 'var(--text-3)', pointerEvents: 'none',
-          }}>
-            🔍
-          </span>
-        </div>
-
-        {/* Category Tabs */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
-          {categories.map(cat => (
-            <button
-              key={cat.key}
-              className={`feature-tab${activeCategory === cat.key ? ' on' : ''}`}
-              onClick={() => {
-                setActiveCategory(cat.key);
-                if (cat.key === 'all') {
-                  setSearchParams({});
-                } else {
-                  setSearchParams({ cat: cat.key });
-                }
-                setVisibleCount(8);
-              }}
-              style={{ padding: '8px 18px', borderRadius: 20, fontSize: '.78rem' }}
-            >
-              {cat.key === 'all' ? t('marketplace.cat.all') : cat.key === 'food' ? t('marketplace.cat.food') : cat.key === 'tech' ? t('marketplace.cat.tech') : cat.key === 'fashion' ? t('marketplace.cat.fashion') : cat.key === 'health' ? t('marketplace.cat.health') : cat.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Filter Row */}
+        {/* Slim page header — title + sort controls on one row */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          marginBottom: 28, padding: '12px 20px', borderRadius: 14,
-          background: 'var(--bg-2)', flexWrap: 'wrap', gap: 12,
+          marginBottom: 24, gap: 16, flexWrap: 'wrap',
+          paddingBottom: 16, borderBottom: '1px solid var(--border)',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: '.78rem', color: 'var(--text-3)', fontWeight: 600 }}>{t('marketplace.sort.label')}</span>
+          <h1 className="display-lg gradient-text" style={{ whiteSpace: 'nowrap', margin: 0 }}>
+            {t('marketplace.title')}
+          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '.8rem', color: 'var(--text-3)', fontWeight: 600 }}>{t('marketplace.sort.label')}</span>
             <select
               value={sortBy}
               onChange={e => { setSortBy(e.target.value); setVisibleCount(8); }}
               style={{
                 padding: '6px 12px', borderRadius: 8,
                 border: '1px solid var(--border)', background: 'var(--surface-card, var(--bg-1))',
-                color: 'var(--text-1)', fontSize: '.78rem',
+                color: 'var(--text-1)', fontSize: '.8rem',
                 fontFamily: 'var(--ff-body, system-ui)', cursor: 'pointer',
               }}
             >
@@ -270,31 +222,29 @@ export default function Marketplace() {
                 <option key={opt.key} value={opt.key}>{opt.key === 'newest' ? t('marketplace.sort.newest') : opt.key === 'bestseller' ? t('marketplace.sort.bestseller') : opt.key === 'price-asc' ? t('marketplace.sort.priceAsc') : t('marketplace.sort.priceDesc')}</option>
               ))}
             </select>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: '.8rem', color: 'var(--text-2)' }}>
+              <div
+                style={{
+                  width: 36, height: 20, borderRadius: 10, padding: 2,
+                  background: dppOnly ? '#22c55e' : 'var(--border)',
+                  transition: 'background .2s', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center',
+                }}
+                onClick={() => { setDppOnly(!dppOnly); setVisibleCount(8); }}
+              >
+                <div style={{
+                  width: 16, height: 16, borderRadius: '50%',
+                  background: '#fff', transition: 'transform .2s',
+                  transform: dppOnly ? 'translateX(16px)' : 'translateX(0)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,.2)',
+                }} />
+              </div>
+              <span style={{ fontWeight: 600 }}>DPP</span>
+            </label>
+            <span style={{ fontSize: '.8rem', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
+              {loading ? '...' : `${filtered.length} ${t('marketplace.productCount')}`}
+            </span>
           </div>
-
-          <label style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            cursor: 'pointer', fontSize: '.78rem', color: 'var(--text-2)',
-          }}>
-            <div style={{
-              width: 40, height: 22, borderRadius: 11, padding: 2,
-              background: dppOnly ? 'var(--c4-500, #22c55e)' : 'var(--border)',
-              transition: 'background .2s', cursor: 'pointer',
-              display: 'flex', alignItems: 'center',
-            }} onClick={() => { setDppOnly(!dppOnly); setVisibleCount(8); }}>
-              <div style={{
-                width: 18, height: 18, borderRadius: '50%',
-                background: '#fff', transition: 'transform .2s',
-                transform: dppOnly ? 'translateX(18px)' : 'translateX(0)',
-                boxShadow: '0 1px 3px rgba(0,0,0,.2)',
-              }} />
-            </div>
-            <span style={{ fontWeight: 600 }}>{t('marketplace.dppOnly')}</span>
-          </label>
-
-          <span style={{ fontSize: '.75rem', color: 'var(--text-4)' }}>
-            {loading ? '...' : `${filtered.length} ${t('marketplace.productCount')}`}
-          </span>
         </div>
 
         {/* Error State — kept for fallback UI if needed */}

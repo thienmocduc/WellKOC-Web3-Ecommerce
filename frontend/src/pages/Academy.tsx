@@ -102,17 +102,15 @@ export default function Academy() {
     <div style={{ paddingTop: 'var(--topbar-height)', minHeight: '100vh', background: 'var(--bg-0)' }}>
       {/* Header */}
       <div style={{
-        padding: '60px 0 40px',
+        padding: '12px 0 40px',
         background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99,102,241,.12) 0%, transparent 60%)'
       }}>
         <div className="container" style={{ textAlign: 'center' }}>
-          <div className="section-badge">🎓 {t('academy.badge')}</div>
-          <h1 className="display-lg gradient-text" style={{ marginBottom: 12 }}>
-            {t('academy.title')}
-          </h1>
-          <p style={{ color: 'var(--text-3)', maxWidth: 580, margin: '0 auto', fontSize: '.88rem' }}>
-            {t('academy.subtitle')}
-          </p>
+          <div style={{ marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+            <h1 className="display-lg gradient-text" style={{ margin: 0, whiteSpace: 'nowrap' }}>
+              {t('academy.title')}
+            </h1>
+          </div>
           <div className="flex gap-16" style={{ justifyContent: 'center', marginTop: 24 }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontFamily: 'var(--ff-display)', fontWeight: 800, fontSize: '1.4rem', color: 'var(--c6-300)' }}>7</div>

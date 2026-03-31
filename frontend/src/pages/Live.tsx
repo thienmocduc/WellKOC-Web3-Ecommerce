@@ -124,24 +124,13 @@ const Live: React.FC = () => {
   const { t } = useI18n();
 
   return (
-    <section className="section" style={{ paddingTop: 'calc(var(--topbar-height) + 48px)' }}>
+    <section className="section" style={{ paddingTop: 'calc(var(--topbar-height) + 12px)' }}>
       <div className="container">
-        {/* Section Header */}
-        <div className="section-header">
-          <div className="section-badge" style={{
-            background: 'rgba(239,68,68,.1)',
-            color: '#f87171',
-            borderColor: 'rgba(239,68,68,.2)',
-          }}>
-            <span className="live-dot" style={{ width: '7px', height: '7px' }}></span>
-            {t('live.badge')}
-          </div>
-          <h2 className="display-md gradient-text">
+        {/* Slim page header */}
+        <div style={{ marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+          <h2 className="display-md gradient-text" style={{ margin: 0, whiteSpace: 'nowrap' }}>
             {t('live.title')}
           </h2>
-          <p style={{ color: 'var(--text-3)', fontSize: '.85rem', marginTop: '8px' }}>
-            {t('live.subtitle')}
-          </p>
         </div>
 
         {/* Featured Live - Large Card */}

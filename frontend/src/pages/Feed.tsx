@@ -137,20 +137,13 @@ const Feed: React.FC = () => {
   };
 
   return (
-    <section className="section" style={{ paddingTop: 'calc(var(--topbar-height) + 20px)' }}>
+    <section className="section" style={{ paddingTop: 'calc(var(--topbar-height) + 12px)' }}>
       <div className="container">
-        {/* Section Header */}
-        <div className="section-header" style={{ marginBottom: 20 }}>
-          <div className="section-badge">
-            <span className="dot-pulse dot-indigo"></span>
-            {t('feed.badge')}
-          </div>
-          <h2 className="display-lg gradient-text" style={{ marginBottom: 8, whiteSpace: 'nowrap' }}>
+        {/* Slim page header */}
+        <div style={{ marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+          <h2 className="display-lg gradient-text" style={{ margin: 0, whiteSpace: 'nowrap' }}>
             {t('feed.title')}
           </h2>
-          <p style={{ color: 'var(--text-3)', fontSize: '.95rem', marginTop: '8px' }}>
-            {t('feed.subtitle')}
-          </p>
         </div>
 
         {/* Video Grid - TikTok style cards */}

@@ -33,19 +33,15 @@ export default function DPP() {
     <div style={{ paddingTop: 'var(--topbar-height)', minHeight: '100vh', background: 'var(--bg-0)' }}>
       {/* Header */}
       <div style={{
-        padding: '60px 0 40px',
+        padding: '12px 0 40px',
         background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(34,197,94,.1) 0%, transparent 60%)',
       }}>
-        <div className="container" style={{ textAlign: 'center' }}>
-          <div className="section-badge" style={{ background: 'rgba(34,197,94,.1)', color: 'var(--c4-300)', borderColor: 'rgba(34,197,94,.2)' }}>
-            <span style={{ whiteSpace: 'nowrap' }}>⛓️ BLOCKCHAIN DPP</span>
+        <div className="container">
+          <div style={{ marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+            <h1 className="display-lg gradient-text" style={{ margin: 0, whiteSpace: 'nowrap' }}>
+              Digital Product Passport
+            </h1>
           </div>
-          <h1 className="display-lg gradient-text" style={{ marginBottom: 12 }}>
-            Digital Product Passport
-          </h1>
-          <p style={{ color: 'var(--text-3)', maxWidth: 580, margin: '0 auto', fontSize: '.88rem' }}>
-            {t('dpp.header.subtitle')}
-          </p>
         </div>
       </div>
 

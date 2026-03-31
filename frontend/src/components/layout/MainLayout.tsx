@@ -226,14 +226,37 @@ export default function MainLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [navSearch, setNavSearch] = useState('');
   const langRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close drawer on route change
+  // Close drawer on route change; reset search
   useEffect(() => {
     setDrawerOpen(false);
     setUserMenuOpen(false);
+    // sync navSearch from URL when route changes
+    setNavSearch(new URLSearchParams(location.search).get('q') || '');
   }, [location.pathname]);
+
+  // Debounce navSearch → update URL ?q= param
+  useEffect(() => {
+    const SEARCH_ROUTES = ['/marketplace', '/feed', '/academy', '/agents', '/koc'];
+    if (!SEARCH_ROUTES.includes(location.pathname)) return;
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams(location.search);
+      if (navSearch.trim()) {
+        params.set('q', navSearch.trim());
+      } else {
+        params.delete('q');
+      }
+      const newQ = params.toString();
+      const curQ = location.search.replace(/^\?/, '');
+      if (newQ !== curQ) {
+        navigate(`${location.pathname}${newQ ? '?' + newQ : ''}`, { replace: true });
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [navSearch]);
 
   // Close language dropdown and user menu on outside click
   useEffect(() => {
@@ -435,6 +458,29 @@ export default function MainLayout() {
             })
           )}
         </div>
+
+        {/* Navbar search — only shown on search-enabled subpages */}
+        {subNav && ['/marketplace', '/feed', '/academy', '/agents', '/koc'].includes(location.pathname) && (
+          <div style={{ position: 'relative', flexShrink: 0, marginLeft: 8 }} className="nav-desktop-only">
+            <input
+              type="text"
+              value={navSearch}
+              onChange={e => setNavSearch(e.target.value)}
+              placeholder="Tìm kiếm..."
+              style={{
+                width: 180, padding: '5px 12px 5px 30px',
+                borderRadius: 20, fontSize: '.78rem',
+                background: 'var(--bg-2)', border: '1px solid var(--border)',
+                color: 'var(--text-1)', outline: 'none',
+                fontFamily: 'var(--ff-body, system-ui)',
+              }}
+            />
+            <span style={{
+              position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
+              fontSize: '.72rem', color: 'var(--text-3)', pointerEvents: 'none', lineHeight: 1,
+            }}>🔍</span>
+          </div>
+        )}
 
         {/* Nav right controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 12 }}>
