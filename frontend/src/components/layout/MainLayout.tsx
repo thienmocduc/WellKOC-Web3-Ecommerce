@@ -969,7 +969,7 @@ export default function MainLayout() {
 
       {/* ═══ MAIN CONTENT ═══ */}
       {(() => {
-        const isDashPage = ['/dashboard', '/koc', '/vendor', '/admin'].some(p => location.pathname.startsWith(p));
+        const isDashPage = ['/dashboard', '/koc', '/vendor', '/admin', '/agents'].some(p => location.pathname.startsWith(p));
         if (isDashPage) {
           return (
             <main style={{ position: 'fixed', top: 100, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
