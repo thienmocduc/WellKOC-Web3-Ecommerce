@@ -853,6 +853,9 @@ export default function MainLayout() {
                 <div style={{ fontWeight: 700, color: 'var(--text-2)', fontSize: '0.82rem' }}>
                   Công ty Cổ phần Công nghệ WellNexus
                 </div>
+                <div style={{ fontWeight: 600, color: 'var(--text-3)', fontSize: '0.78rem' }}>
+                  Công ty TNHH WellKOC Việt Nam
+                </div>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                   <span style={{ flexShrink: 0 }}>📍</span>
                   <span>35 Thái Phiên, Phường Hải Châu, Đà Nẵng, Việt Nam</span>
