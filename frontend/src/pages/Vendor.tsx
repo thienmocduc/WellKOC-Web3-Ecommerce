@@ -6,6 +6,132 @@ import { vendorApi, type Product as ApiProduct, type Order as ApiOrder } from '@
 
 const parsePrice = (s: string) => parseInt(s.replace(/[^0-9]/g, '')) || 0;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// LEGAL COMPLIANCE — required documents per product category (Vietnam law)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface LegalDoc {
+  key: string;
+  label: string;
+  desc: string;
+  required: boolean;
+  warning?: string;
+}
+interface CategoryLegal {
+  title: string;
+  basis: string;
+  riskLevel: 'high' | 'medium' | 'low';
+  docs: LegalDoc[];
+}
+
+const LEGAL_REQUIREMENTS: Record<string, CategoryLegal> = {
+  'Thực phẩm & Đồ uống': {
+    title: 'Pháp lý Thực phẩm & Đồ uống',
+    basis: 'Luật ATTP 2010, NĐ 15/2018/NĐ-CP, NĐ 43/2017/NĐ-CP',
+    riskLevel: 'medium',
+    docs: [
+      { key: 'attp_cert', label: 'Giấy chứng nhận ATTP', desc: 'GCN cơ sở đủ điều kiện ATTP do Sở Y tế / Sở Công thương cấp', required: true, warning: 'BẮT BUỘC theo NĐ 15/2018/NĐ-CP' },
+      { key: 'product_label', label: 'Nhãn sản phẩm đúng quy định', desc: 'Nhãn tiếng Việt: tên SP, thành phần, NSX, HSD, xuất xứ — NĐ 43/2017/NĐ-CP', required: true },
+      { key: 'test_result', label: 'Phiếu kiểm nghiệm chất lượng', desc: 'Kết quả từ lab được công nhận, không quá 12 tháng', required: false },
+      { key: 'co', label: 'Chứng nhận xuất xứ (CO/CQ)', desc: 'Bắt buộc nếu hàng nhập khẩu', required: false, warning: 'Bắt buộc với hàng nhập khẩu' },
+      { key: 'import_permit', label: 'Giấy phép nhập khẩu thực phẩm', desc: 'Giấy phép nhập khẩu từ Cục ATTP (nếu nhập)', required: false },
+    ],
+  },
+  'Sức khỏe & Dinh dưỡng': {
+    title: 'Pháp lý Thực phẩm Bảo vệ Sức khỏe (TPBVSK)',
+    basis: 'NĐ 15/2018/NĐ-CP, TT 43/2014/TT-BYT, NĐ 115/2018/NĐ-CP',
+    riskLevel: 'high',
+    docs: [
+      { key: 'product_registration', label: 'Giấy tiếp nhận bản công bố sản phẩm', desc: 'Số tiếp nhận công bố TPBVSK tại Cục An toàn thực phẩm - Bộ Y tế (bắt buộc trước khi lưu hành)', required: true, warning: 'BẮT BUỘC — Không có giấy này không được phép lưu hành (vi phạm NĐ 115/2018)' },
+      { key: 'attp_cert', label: 'GCN cơ sở đủ điều kiện ATTP', desc: 'Giấy chứng nhận đủ điều kiện sản xuất/kinh doanh TPBVSK', required: true },
+      { key: 'test_result', label: 'Phiếu kiểm nghiệm toàn diện', desc: 'Vi sinh, lý hóa, kim loại nặng, chất cấm — từ lab Bộ Y tế công nhận, không quá 12 tháng', required: true },
+      { key: 'product_label', label: 'Nhãn sản phẩm đúng quy định', desc: 'KHÔNG được ghi tác dụng điều trị bệnh. Phải có: thành phần, công dụng, liều dùng, cảnh báo, HSD', required: true, warning: 'Vi phạm quảng cáo TPBVSK bị phạt đến 100 triệu đồng' },
+      { key: 'gmp_cert', label: 'Chứng nhận GMP / ISO 22000', desc: 'GMP hoặc ISO 22000 — khuyến nghị mạnh (bắt buộc với SP xuất khẩu)', required: false },
+      { key: 'cfs', label: 'Certificate of Free Sale (CFS)', desc: 'Chứng nhận lưu hành tự do tại nước xuất khẩu (bắt buộc nếu nhập khẩu)', required: false, warning: 'Bắt buộc với hàng nhập khẩu' },
+    ],
+  },
+  'Mỹ phẩm & Skincare': {
+    title: 'Pháp lý Mỹ phẩm',
+    basis: 'TT 06/2011/TT-BYT, TT 34/2022/TT-BYT, Hiệp định ASEAN về Mỹ phẩm',
+    riskLevel: 'high',
+    docs: [
+      { key: 'cosmetic_notification', label: 'Phiếu tiếp nhận công bố mỹ phẩm', desc: 'Số tiếp nhận từ Cục Quản lý Dược - Bộ Y tế. Mỗi sản phẩm một số riêng', required: true, warning: 'BẮT BUỘC — Theo ASEAN Cosmetics Directive & TT 06/2011/TT-BYT. Phạt đến 70 triệu đồng nếu vi phạm' },
+      { key: 'coa_test', label: 'Phiếu kiểm nghiệm / CoA', desc: 'Certificate of Analysis: kim loại nặng (Pb, As, Hg, Cd), vi sinh, chất cấm (steroids, hydroquinone...)', required: true },
+      { key: 'product_label', label: 'Nhãn phụ tiếng Việt đầy đủ', desc: 'Tên mỹ phẩm, thành phần (INCI list), công dụng, cách dùng, cảnh báo an toàn, NSX/HSD, nhà nhập khẩu', required: true },
+      { key: 'cfs', label: 'Certificate of Free Sale (CFS)', desc: 'Chứng nhận lưu hành tự do tại nước xuất xứ — bắt buộc nếu nhập khẩu', required: false, warning: 'Bắt buộc với hàng nhập khẩu' },
+      { key: 'import_authorization', label: 'Giấy ủy quyền nhập khẩu / phân phối', desc: 'Giấy ủy quyền chính thức từ nhà sản xuất/chủ nhãn (nếu là nhà phân phối chính thức)', required: false },
+      { key: 'derma_test', label: 'Kết quả Dermatologist-tested', desc: 'Kiểm tra trên da — bắt buộc với SP nhạy cảm: dùng cho mặt, trẻ em, da nhạy cảm', required: false },
+    ],
+  },
+  'Thời trang & Phụ kiện': {
+    title: 'Pháp lý Thời trang & Phụ kiện',
+    basis: 'NĐ 43/2017/NĐ-CP (nhãn hàng hóa), NĐ 69/2018/NĐ-CP',
+    riskLevel: 'low',
+    docs: [
+      { key: 'vat_invoice', label: 'Hóa đơn VAT hợp lệ', desc: 'Hóa đơn GTGT chứng minh nguồn gốc hàng hóa hợp pháp từ nhà cung cấp', required: true },
+      { key: 'product_label', label: 'Nhãn hàng hóa đúng quy định', desc: 'Nhãn tiếng Việt: tên SP, chất liệu (% thành phần vải), xuất xứ, nhà SX/nhập khẩu', required: true },
+      { key: 'co', label: 'Chứng nhận xuất xứ (CO)', desc: 'Form CO từ cơ quan thẩm quyền nếu hàng nhập khẩu', required: false, warning: 'Bắt buộc với hàng nhập khẩu' },
+      { key: 'brand_authorization', label: 'Giấy ủy quyền phân phối thương hiệu', desc: 'Nếu kinh doanh hàng có nhãn hiệu đã đăng ký, cần giấy ủy quyền chính thức từ chủ thương hiệu', required: false },
+    ],
+  },
+  'Công nghệ & Điện tử': {
+    title: 'Pháp lý Thiết bị Điện tử & Công nghệ',
+    basis: 'Luật CLSPHH 2007, TT 28/2012/TT-BKHCN, QĐ 3810/QĐ-BKHCN',
+    riskLevel: 'high',
+    docs: [
+      { key: 'conformity_cert', label: 'Giấy chứng nhận Hợp quy (Dấu CR)', desc: 'Dấu CR (Conformity Registration) bắt buộc với thiết bị điện tử theo QCVN. Cấp bởi tổ chức chứng nhận được chỉ định', required: true, warning: 'BẮT BUỘC — Không có dấu CR không được phép lưu thông. Phạt hành chính đến 30 triệu đồng' },
+      { key: 'safety_cert', label: 'Chứng nhận an toàn điện / EMC', desc: 'Kiểm tra IEC 60950 / IEC 62368 (an toàn điện) và EMC (tương thích điện từ)', required: true },
+      { key: 'vat_invoice', label: 'Hóa đơn VAT hợp lệ', desc: 'Chứng minh nguồn gốc thiết bị hợp pháp', required: true },
+      { key: 'warranty_policy', label: 'Chính sách bảo hành chính hãng', desc: 'Tài liệu bảo hành từ nhà sản xuất (tối thiểu 12 tháng theo quy định pháp luật)', required: true },
+      { key: 'co_cq', label: 'C/O và C/Q (xuất xứ + chất lượng)', desc: 'Certificate of Origin và Certificate of Quality từ nhà sản xuất (bắt buộc nếu nhập khẩu)', required: false, warning: 'Bắt buộc với hàng nhập khẩu' },
+      { key: 'import_permit', label: 'Giấy phép nhập khẩu thiết bị đặc biệt', desc: 'Thiết bị viễn thông, tần số vô tuyến, camera giám sát: cần giấy phép Bộ TT&TT', required: false },
+    ],
+  },
+  'Nhà cửa & Đời sống': {
+    title: 'Pháp lý Đồ gia dụng, Nội thất & Vật phẩm Trang trí',
+    basis: 'NĐ 43/2017/NĐ-CP, TT 28/2012/TT-BKHCN, Công ước CITES',
+    riskLevel: 'medium',
+    docs: [
+      { key: 'vat_invoice', label: 'Hóa đơn VAT hợp lệ', desc: 'Hóa đơn GTGT chứng minh nguồn gốc hàng hóa', required: true },
+      { key: 'product_label', label: 'Nhãn hàng hóa đúng quy định', desc: 'Nhãn tiếng Việt: tên SP, chất liệu, xuất xứ, nhà SX/nhập khẩu — NĐ 43/2017/NĐ-CP', required: true },
+      { key: 'conformity_cert', label: 'Chứng nhận Hợp quy / Hợp chuẩn', desc: 'Đồ điện gia dụng (ấm đun, nồi cơm, quạt...): bắt buộc dấu CR. Vật dụng thông thường: công bố hợp chuẩn nếu có QCVN', required: false, warning: 'BẮT BUỘC với đồ điện gia dụng có nguồn điện' },
+      { key: 'co', label: 'Chứng nhận xuất xứ (CO)', desc: 'CO từ cơ quan thẩm quyền nếu hàng nhập khẩu', required: false },
+      { key: 'material_cert', label: 'Chứng nhận nguyên liệu đặc biệt (CITES)', desc: 'SP làm từ đá quý, ngà voi, san hô, gỗ quý, xương sừng động vật: BẮT BUỘC giấy chứng nhận nguồn gốc CITES hoặc giấy phép khai thác', required: false, warning: 'Vi phạm CITES = hình sự. Kiểm tra kỹ nếu SP có nguồn gốc động/thực vật quý hiếm' },
+      { key: 'feng_shui_origin', label: 'Chứng nhận xuất xứ vật phẩm phong thủy', desc: 'Vật phẩm phong thủy (đá phong thủy, tượng, vòng tay): CO + hóa đơn nhập khẩu + chứng nhận chất liệu không vi phạm CITES', required: false },
+    ],
+  },
+  'Thú cưng': {
+    title: 'Pháp lý Sản phẩm Thú cưng',
+    basis: 'Luật Thú y 2015, NĐ 35/2016/NĐ-CP, Luật ATTP 2010',
+    riskLevel: 'medium',
+    docs: [
+      { key: 'vat_invoice', label: 'Hóa đơn VAT hợp lệ', desc: 'Hóa đơn hợp lệ chứng minh nguồn gốc hàng hóa', required: true },
+      { key: 'product_label', label: 'Nhãn hàng hóa đúng quy định', desc: 'Nhãn tiếng Việt đầy đủ: tên, thành phần, hướng dẫn, HSD', required: true },
+      { key: 'vet_hygiene_cert', label: 'Giấy kiểm tra vệ sinh thú y', desc: 'Với thức ăn thú cưng: GCN kiểm tra vệ sinh thú y từ Cục Thú y - Bộ NN&PTNT', required: false, warning: 'BẮT BUỘC với thức ăn/thực phẩm dành cho thú cưng' },
+      { key: 'import_permit', label: 'Giấy phép nhập khẩu thú y', desc: 'Giấy phép nhập khẩu từ Cục Thú y (nếu nhập khẩu)', required: false },
+    ],
+  },
+  'Khác': {
+    title: 'Hồ sơ pháp lý cơ bản',
+    basis: 'Luật Thương mại 2005, NĐ 43/2017/NĐ-CP',
+    riskLevel: 'low',
+    docs: [
+      { key: 'vat_invoice', label: 'Hóa đơn VAT hợp lệ', desc: 'Hóa đơn GTGT chứng minh nguồn gốc hàng hóa hợp pháp', required: true },
+      { key: 'product_label', label: 'Nhãn hàng hóa đúng quy định', desc: 'Nhãn tiếng Việt theo NĐ 43/2017/NĐ-CP', required: true },
+    ],
+  },
+};
+
+const RISK_COLORS = { high: '#ef4444', medium: '#f59e0b', low: '#22c55e' };
+const RISK_LABELS = { high: 'Kiểm soát chặt', medium: 'Trung bình', low: 'Cơ bản' };
+
+function getLegalStatus(category: string, docs: Record<string, boolean>): { ok: boolean; missing: number } {
+  const reqs = LEGAL_REQUIREMENTS[category];
+  if (!reqs) return { ok: true, missing: 0 };
+  const missing = reqs.docs.filter(d => d.required && !docs[d.key]).length;
+  return { ok: missing === 0, missing };
+}
+
 /* ── Sidebar (accordion groups like Admin) ────────── */
 interface VendorSidebarGroup {
   key: string; labelKey: string; color: string; icon: string;
@@ -221,6 +347,9 @@ export default function Vendor() {
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<number | null>(null);
   const [newProduct, setNewProduct] = useState({ name: '', price: '', stock: '', commission: '', description: '', category: '', origin: '', weight: '', sku: '', imageUrl: '' });
+  const [legalDocs, setLegalDocs] = useState<Record<string, boolean>>({});
+  const [legalError, setLegalError] = useState('');
+  const toggleLegalDoc = (key: string) => setLegalDocs(prev => ({ ...prev, [key]: !prev[key] }));
 
   // Orders — loaded from API, fallback to demo data
   const [orderList, setOrderList] = useState(initialOrders);
@@ -262,6 +391,14 @@ export default function Vendor() {
   /* ── Product CRUD ──────────────────────────────── */
   const handleAddProduct = async () => {
     if (!newProduct.name.trim()) { showToast(t('vendor.toast.enterProductName'), 'error'); return; }
+    if (!newProduct.category) { showToast('Vui lòng chọn danh mục sản phẩm', 'error'); return; }
+    const legalStatus = getLegalStatus(newProduct.category, legalDocs);
+    if (!legalStatus.ok) {
+      setLegalError(`Còn ${legalStatus.missing} giấy tờ pháp lý bắt buộc chưa được xác nhận. Vui lòng kiểm tra và đánh dấu xác nhận đã có đầy đủ hồ sơ.`);
+      showToast(`Thiếu ${legalStatus.missing} giấy tờ pháp lý bắt buộc`, 'error');
+      return;
+    }
+    setLegalError('');
     const payload = {
       name: newProduct.name,
       price: parsePrice(newProduct.price),
@@ -272,6 +409,8 @@ export default function Vendor() {
       sku: newProduct.sku,
       status: 'active',
     };
+    const requiredCount = (LEGAL_REQUIREMENTS[newProduct.category]?.docs.filter(d => d.required).length) || 0;
+    const approvedCount = Object.values(legalDocs).filter(Boolean).length;
     const p = {
       id: nextProductId++,
       name: newProduct.name,
@@ -284,9 +423,14 @@ export default function Vendor() {
       emoji: '📦',
       dppTokenId: '—',
       hidden: false,
+      legalOk: approvedCount >= requiredCount && requiredCount > 0,
+      legalDocs: { ...legalDocs },
+      category: newProduct.category,
     };
     setProductList(prev => [...prev, p]);
     setNewProduct({ name: '', price: '', stock: '', commission: '', description: '', category: '', origin: '', weight: '', sku: '', imageUrl: '' });
+    setLegalDocs({});
+    setLegalError('');
     setShowAddProduct(false);
     showToast(`${t('vendor.toast.productAdded')} "${p.name}"`);
     if (token) {
@@ -603,10 +747,75 @@ export default function Vendor() {
                     </div>
                   </div>
 
+                  {/* Row 7: Legal Compliance — dynamic by category */}
+                  {newProduct.category && LEGAL_REQUIREMENTS[newProduct.category] && (() => {
+                    const legal = LEGAL_REQUIREMENTS[newProduct.category];
+                    const riskColor = RISK_COLORS[legal.riskLevel];
+                    return (
+                      <div style={{ border: `2px solid ${riskColor}40`, borderRadius: 12, overflow: 'hidden' }}>
+                        {/* Header */}
+                        <div style={{ padding: '10px 16px', background: `${riskColor}10`, borderBottom: `1px solid ${riskColor}30`, display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: '1.1rem' }}>⚖️</span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 700, fontSize: '.85rem', color: riskColor }}>{legal.title}</div>
+                            <div style={{ fontSize: '.65rem', color: 'var(--text-4)', marginTop: 2 }}>📋 Căn cứ pháp lý: {legal.basis}</div>
+                          </div>
+                          <span style={{ padding: '2px 10px', borderRadius: 20, background: `${riskColor}20`, color: riskColor, fontSize: '.65rem', fontWeight: 700, whiteSpace: 'nowrap' as const }}>
+                            {RISK_LABELS[legal.riskLevel]}
+                          </span>
+                        </div>
+                        {/* Doc list */}
+                        <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          <div style={{ fontSize: '.72rem', color: 'var(--text-3)', marginBottom: 4 }}>
+                            Xác nhận đã chuẩn bị đầy đủ các giấy tờ sau. <strong style={{ color: '#ef4444' }}>Giấy tờ bắt buộc (*)</strong> phải có trước khi đăng sản phẩm.
+                          </div>
+                          {legal.docs.map(doc => {
+                            const checked = !!legalDocs[doc.key];
+                            return (
+                              <div key={doc.key}
+                                onClick={() => toggleLegalDoc(doc.key)}
+                                style={{ display: 'flex', gap: 12, padding: '10px 12px', borderRadius: 8, border: `1px solid ${checked ? 'var(--c4-500)' : doc.required ? '#ef444440' : 'var(--border)'}`, background: checked ? 'rgba(34,197,94,.06)' : doc.required ? 'rgba(239,68,68,.03)' : 'var(--bg-2)', cursor: 'pointer', transition: 'all .15s' }}>
+                                <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${checked ? 'var(--c4-500)' : doc.required ? '#ef4444' : 'var(--border)'}`, background: checked ? 'var(--c4-500)' : 'transparent', flexShrink: 0, marginTop: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.7rem', color: '#fff' }}>
+                                  {checked ? '✓' : ''}
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                    <span style={{ fontWeight: 700, fontSize: '.78rem', color: checked ? 'var(--c4-500)' : 'var(--text-1)' }}>{doc.label}</span>
+                                    {doc.required && <span style={{ fontSize: '.6rem', color: '#ef4444', fontWeight: 700 }}>* BẮT BUỘC</span>}
+                                    {!doc.required && <span style={{ fontSize: '.6rem', color: 'var(--text-4)' }}>Khuyến nghị</span>}
+                                  </div>
+                                  <div style={{ fontSize: '.68rem', color: 'var(--text-3)', lineHeight: 1.5 }}>{doc.desc}</div>
+                                  {doc.warning && <div style={{ marginTop: 4, fontSize: '.65rem', color: '#f59e0b', fontWeight: 600 }}>⚠️ {doc.warning}</div>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {/* Summary */}
+                          {(() => {
+                            const status = getLegalStatus(newProduct.category, legalDocs);
+                            return (
+                              <div style={{ marginTop: 4, padding: '8px 12px', borderRadius: 8, background: status.ok ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)', border: `1px solid ${status.ok ? 'rgba(34,197,94,.3)' : 'rgba(239,68,68,.3)'}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: '1rem' }}>{status.ok ? '✅' : '❌'}</span>
+                                <span style={{ fontSize: '.75rem', fontWeight: 700, color: status.ok ? 'var(--c4-500)' : '#ef4444' }}>
+                                  {status.ok ? 'Đã xác nhận đủ giấy tờ bắt buộc — có thể đăng sản phẩm' : `Còn thiếu ${status.missing} giấy tờ bắt buộc`}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                        {legalError && (
+                          <div style={{ padding: '8px 16px', background: 'rgba(239,68,68,.1)', borderTop: '1px solid rgba(239,68,68,.2)', fontSize: '.75rem', color: '#ef4444', fontWeight: 600 }}>
+                            ⛔ {legalError}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   {/* Actions */}
                   <div className="flex gap-8" style={{ paddingTop: 4 }}>
                     <button className="btn btn-primary btn-sm" onClick={handleAddProduct}>💾 {t('vendor.products.saveBtn')}</button>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setShowAddProduct(false)}>{t('vendor.products.cancelBtn')}</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => { setShowAddProduct(false); setLegalDocs({}); setLegalError(''); }}>{t('vendor.products.cancelBtn')}</button>
                   </div>
                 </div>
               </div>
@@ -617,7 +826,7 @@ export default function Vendor() {
                 <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.78rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                      {['', t('vendor.products.thProduct'), t('vendor.products.thPrice'), t('vendor.products.thStock'), t('vendor.products.thSold'), t('vendor.products.thCommission'), 'DPP', t('vendor.products.thStatus'), t('vendor.products.thActions')].map(h => (
+                      {['', t('vendor.products.thProduct'), t('vendor.products.thPrice'), t('vendor.products.thStock'), t('vendor.products.thSold'), t('vendor.products.thCommission'), 'DPP', 'Pháp lý', t('vendor.products.thStatus'), t('vendor.products.thActions')].map(h => (
                         <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, fontSize: '.65rem', color: 'var(--text-3)', letterSpacing: '.06em', textTransform: 'uppercase' }}>{h}</th>
                       ))}
                     </tr>
@@ -642,6 +851,15 @@ export default function Vendor() {
                           <td style={{ padding: '12px 14px' }}>
                             <span className={`status-pill badge ${dsc.badge}`}>{dsc.label}</span>
                             {p.dppTokenId !== '—' && <span className="mono" style={{ fontSize: '.6rem', color: 'var(--text-4)', marginLeft: 4 }}>{p.dppTokenId}</span>}
+                          </td>
+                          <td style={{ padding: '12px 14px' }}>
+                            {(p as any).legalOk === true ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, background: 'rgba(34,197,94,.1)', color: '#16a34a', fontSize: '.65rem', fontWeight: 700, whiteSpace: 'nowrap' as const }}>✅ Đủ hồ sơ</span>
+                            ) : (p as any).legalOk === false ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 20, background: 'rgba(239,68,68,.1)', color: '#ef4444', fontSize: '.65rem', fontWeight: 700, whiteSpace: 'nowrap' as const }}>⚠️ Thiếu hồ sơ</span>
+                            ) : (
+                              <span style={{ fontSize: '.65rem', color: 'var(--text-4)' }}>—</span>
+                            )}
                           </td>
                           <td style={{ padding: '12px 14px' }}><span className={`badge ${sc.badge}`}>{t(sc.labelKey)}</span></td>
                           <td style={{ padding: '12px 14px' }}>
