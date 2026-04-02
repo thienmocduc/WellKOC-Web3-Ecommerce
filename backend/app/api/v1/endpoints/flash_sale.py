@@ -190,7 +190,7 @@ async def create_flash_sale(
 
 @router.get("/active")
 async def list_active_flash_sales(
-    pagination: Pagination = Depends(),
+    pagination: Pagination,
     db: AsyncSession = Depends(get_db),
 ):
     """List active flash sales with countdown timers."""
@@ -293,7 +293,8 @@ async def suggest_flash_sale_timing(
 @router.get("/history")
 async def flash_sale_history(
     vendor_id: Optional[uuid.UUID] = Query(None),
-    pagination: Pagination = Depends(),
+    *,
+    pagination: Pagination,
     db: AsyncSession = Depends(get_db),
 ):
     """Past flash sales with performance metrics."""

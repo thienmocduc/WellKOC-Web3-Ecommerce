@@ -198,7 +198,8 @@ async def receive_comment_webhook(
 async def list_comments(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-    paging: Pagination = Depends(),
+    *,
+    paging: Pagination,
     platform: Optional[str] = Query(None, pattern="^(tiktok|instagram|facebook)$"),
     status: Optional[str] = Query(None, pattern="^(pending|approved|rejected|replied)$"),
     classification: Optional[str] = Query(None, pattern="^(positive|question|complaint|spam)$"),

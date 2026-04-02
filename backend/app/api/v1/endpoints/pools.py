@@ -124,7 +124,8 @@ async def get_rankings(
     week: Optional[int] = Query(None, ge=1, le=53),
     year: Optional[int] = Query(None, ge=2024, le=2030),
     pool: Optional[str] = Query(None, description="A, B, C, or all"),
-    pagination: Pagination = Depends(),
+    *,
+    pagination: Pagination,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -233,7 +234,8 @@ async def my_rank(
 async def distribution_history(
     week: Optional[int] = Query(None, ge=1, le=53),
     year: Optional[int] = Query(None, ge=2024, le=2030),
-    pagination: Pagination = Depends(),
+    *,
+    pagination: Pagination,
     db: AsyncSession = Depends(get_db),
 ):
     """Distribution history — on-chain TX records."""
@@ -272,7 +274,8 @@ async def pool_members(
     pool: str,
     week: Optional[int] = Query(None, ge=1, le=53),
     year: Optional[int] = Query(None, ge=2024, le=2030),
-    pagination: Pagination = Depends(),
+    *,
+    pagination: Pagination,
     db: AsyncSession = Depends(get_db),
 ):
     """List members of a specific pool (A/B/C) for a given week."""

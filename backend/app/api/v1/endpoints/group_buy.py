@@ -123,7 +123,8 @@ async def create_group_buy(
 @router.get("", response_model=list[GroupBuyOut])
 async def list_group_buys(
     status_filter: Optional[str] = "active",
-    pagination: Pagination = Depends(),
+    *,
+    pagination: Pagination,
     db: AsyncSession = Depends(get_db),
 ):
     """List group buy campaigns, defaults to active only"""

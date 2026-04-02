@@ -190,7 +190,7 @@ async def start_live_stream(
 
 @router.get("/active", response_model=list[LiveStreamOut])
 async def list_active_streams(
-    pagination: Pagination = Depends(),
+    pagination: Pagination,
     db: AsyncSession = Depends(get_db),
 ):
     """List currently active live streams"""
