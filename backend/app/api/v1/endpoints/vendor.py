@@ -7,7 +7,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.api.v1.deps import CurrentUser, require_role
-from app.models.user import UserRole
+from app.models.user import User, UserRole
 from app.models.order import Order, Commission, CommissionStatus
 from app.models.product import Product, ProductStatus
 from app.models.vendor import VendorProfile
@@ -31,7 +31,7 @@ class VendorProfileUpdate(BaseModel):
 
 @router.get("/profile")
 async def get_vendor_profile(
-    current_user: CurrentUser = Depends(vendor_only),
+    current_user: User = Depends(vendor_only),
     db: AsyncSession = Depends(get_db),
 ):
     """Get vendor profile details."""
@@ -64,7 +64,7 @@ async def get_vendor_profile(
 @router.put("/profile")
 async def update_vendor_profile(
     body: VendorProfileUpdate,
-    current_user: CurrentUser = Depends(vendor_only),
+    current_user: User = Depends(vendor_only),
     db: AsyncSession = Depends(get_db),
 ):
     """Update vendor profile fields."""
@@ -103,7 +103,7 @@ async def vendor_products(
     status: Optional[str] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    current_user: CurrentUser = Depends(vendor_only),
+    current_user: User = Depends(vendor_only),
     db: AsyncSession = Depends(get_db),
 ):
     """List vendor's products with pagination."""
@@ -154,7 +154,7 @@ async def vendor_orders(
     status: Optional[str] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    current_user: CurrentUser = Depends(vendor_only),
+    current_user: User = Depends(vendor_only),
     db: AsyncSession = Depends(get_db),
 ):
     """List vendor's orders with optional status filter and pagination."""
@@ -200,7 +200,7 @@ async def vendor_orders(
 
 @router.get("/analytics")
 async def vendor_analytics(
-    current_user: CurrentUser = Depends(vendor_only),
+    current_user: User = Depends(vendor_only),
     db: AsyncSession = Depends(get_db),
 ):
     """Sales analytics: revenue, orders count, top products."""
@@ -296,7 +296,7 @@ async def vendor_commissions(
     status: Optional[str] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    current_user: CurrentUser = Depends(vendor_only),
+    current_user: User = Depends(vendor_only),
     db: AsyncSession = Depends(get_db),
 ):
     """List KOC commissions paid (or queued) by this vendor, derived from vendor's orders."""
@@ -368,7 +368,7 @@ async def vendor_commissions(
 
 @router.get("/dashboard")
 async def vendor_dashboard(
-    current_user: CurrentUser = Depends(vendor_only),
+    current_user: User = Depends(vendor_only),
     db: AsyncSession = Depends(get_db),
 ):
     r_products = await db.execute(
@@ -397,7 +397,7 @@ async def vendor_dashboard(
 
 @router.get("/koc-network")
 async def vendor_koc_network(
-    current_user: CurrentUser = Depends(vendor_only),
+    current_user: User = Depends(vendor_only),
     db: AsyncSession = Depends(get_db),
 ):
     r = await db.execute(
@@ -430,7 +430,7 @@ async def vendor_koc_network(
 @router.post("/ai-price/{product_id}")
 async def ai_price_suggestion(
     product_id: UUID,
-    current_user: CurrentUser = Depends(vendor_only),
+    current_user: User = Depends(vendor_only),
     db: AsyncSession = Depends(get_db),
 ):
     r = await db.execute(
@@ -454,7 +454,7 @@ async def ai_price_suggestion(
 
 @router.get("/inventory")
 async def vendor_inventory(
-    current_user: CurrentUser = Depends(vendor_only),
+    current_user: User = Depends(vendor_only),
     db: AsyncSession = Depends(get_db),
 ):
     r = await db.execute(

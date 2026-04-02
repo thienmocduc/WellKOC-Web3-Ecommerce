@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.api.v1.deps import CurrentUser, require_role
 from app.models.order import Order, OrderStatus
-from app.models.user import UserRole
+from app.models.user import User, UserRole
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
@@ -68,7 +68,7 @@ async def get_order(order_id: UUID, current_user: CurrentUser, db: AsyncSession 
 @router.put("/{order_id}/status")
 async def update_status(
     order_id: UUID, status: str,
-    current_user: CurrentUser = Depends(require_role([UserRole.VENDOR, UserRole.ADMIN])),
+    current_user: User = Depends(require_role([UserRole.VENDOR, UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db),
 ):
     r = await db.execute(select(Order).where(Order.id == order_id))

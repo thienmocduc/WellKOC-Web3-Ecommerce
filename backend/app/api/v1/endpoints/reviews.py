@@ -332,7 +332,7 @@ async def flag_review(
 async def remove_review(
     review_id: UUID,
     body: RemoveRequest,
-    current_user: CurrentUser = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     db: AsyncSession = Depends(get_db),
 ):
     """Admin removes a review with a reason. Soft-delete (status → removed)."""

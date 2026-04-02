@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.api.v1.deps import CurrentUser, require_role
 from app.models.product import Product
-from app.models.user import UserRole
+from app.models.user import User, UserRole
 from app.services.dpp_service import DPPService
 
 router = APIRouter(prefix="/dpp", tags=["DPP"])
@@ -16,7 +16,7 @@ vendor_only = require_role([UserRole.VENDOR, UserRole.ADMIN])
 @router.post("/mint/{product_id}")
 async def mint_dpp(
     product_id: UUID,
-    current_user: CurrentUser = Depends(vendor_only),
+    current_user: User = Depends(vendor_only),
     db: AsyncSession = Depends(get_db),
 ):
     """Trigger DPP NFT minting for a product. Returns a job tracking ID."""

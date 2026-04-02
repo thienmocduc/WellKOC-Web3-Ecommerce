@@ -130,7 +130,7 @@ async def vendor_onboard_status(
 async def review_vendor_application(
     vendor_id: UUID,
     payload: VendorReviewRequest,
-    current_user: CurrentUser = Depends(admin_only),
+    current_user: User = Depends(admin_only),
     db: AsyncSession = Depends(get_db),
 ):
     """Admin reviews vendor application. Approve or reject with reason."""

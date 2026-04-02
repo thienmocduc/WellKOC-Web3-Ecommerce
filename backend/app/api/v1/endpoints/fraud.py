@@ -313,7 +313,7 @@ async def list_fraud_alerts(
     alert_type: Optional[str] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    current_user: CurrentUser = Depends(require_role([UserRole.ADMIN])),
+    current_user: User = Depends(require_role([UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db),
 ):
     """List fraud alerts (admin only)."""
@@ -339,7 +339,7 @@ async def list_fraud_alerts(
 async def resolve_fraud_alert(
     alert_id: UUID,
     body: ResolveAlertReq,
-    current_user: CurrentUser = Depends(require_role([UserRole.ADMIN])),
+    current_user: User = Depends(require_role([UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db),
 ):
     """Admin resolves a fraud alert as confirm_fraud or false_positive."""
@@ -374,7 +374,7 @@ async def resolve_fraud_alert(
 @router.get("/self-referral")
 async def detect_self_referrals(
     days: int = Query(30, ge=1, le=365),
-    current_user: CurrentUser = Depends(require_role([UserRole.ADMIN])),
+    current_user: User = Depends(require_role([UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db),
 ):
     """Detect self-referral patterns: KOCs buying through their own affiliate links."""
@@ -443,7 +443,7 @@ async def detect_self_referrals(
 @router.get("/stats")
 async def fraud_stats(
     days: int = Query(30, ge=1, le=365),
-    current_user: CurrentUser = Depends(require_role([UserRole.ADMIN])),
+    current_user: User = Depends(require_role([UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db),
 ):
     """Fraud statistics: totals, rates, breakdowns."""
@@ -515,7 +515,7 @@ async def fraud_stats(
 @router.post("/scan")
 async def trigger_fraud_scan(
     body: ScanReq = ScanReq(),
-    current_user: CurrentUser = Depends(require_role([UserRole.ADMIN])),
+    current_user: User = Depends(require_role([UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db),
 ):
     """Admin triggers a full network fraud scan over recent orders."""

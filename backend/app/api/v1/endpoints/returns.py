@@ -19,7 +19,7 @@ from app.core.database import get_db
 from app.api.v1.deps import CurrentUser, require_role
 from app.models.return_request import ReturnRequest, ReturnStatus, ReturnReason, RefundMethod
 from app.models.order import Order, OrderStatus
-from app.models.user import UserRole
+from app.models.user import User, UserRole
 
 router = APIRouter(prefix="/returns", tags=["Returns"])
 
@@ -188,7 +188,7 @@ async def get_return_request(
 async def vendor_decision(
     return_id: UUID,
     body: VendorDecisionReq,
-    current_user: CurrentUser = Depends(require_role([UserRole.VENDOR, UserRole.ADMIN])),
+    current_user: User = Depends(require_role([UserRole.VENDOR, UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db),
 ):
     """Vendor approves or rejects a return request."""
@@ -223,7 +223,7 @@ async def vendor_decision(
 async def process_refund(
     return_id: UUID,
     body: ProcessRefundReq,
-    current_user: CurrentUser = Depends(require_role([UserRole.ADMIN])),
+    current_user: User = Depends(require_role([UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db),
 ):
     """Admin processes the refund for an approved return request."""
