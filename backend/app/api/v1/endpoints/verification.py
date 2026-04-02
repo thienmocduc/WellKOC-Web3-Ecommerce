@@ -136,7 +136,7 @@ def _validate_identity_number(identity_number: str) -> bool:
 @router.post("/phone/send-otp")
 async def phone_send_otp(
     body: PhoneSendOTPRequest,
-    current_user: CurrentUser = None,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """Gửi OTP xác minh số điện thoại. Kiểm tra số chưa được dùng bởi tài khoản khác."""
@@ -176,7 +176,7 @@ async def phone_send_otp(
 @router.post("/phone/confirm")
 async def phone_confirm(
     body: PhoneConfirmRequest,
-    current_user: CurrentUser = None,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """Xác nhận OTP điện thoại. Cập nhật trạng thái xác minh."""
@@ -221,7 +221,7 @@ async def phone_confirm(
 @router.post("/bank")
 async def verify_bank(
     body: BankVerifyRequest,
-    current_user: CurrentUser = None,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """Xác minh tài khoản ngân hàng. Kiểm tra trùng lặp và khớp tên."""
@@ -268,7 +268,7 @@ async def verify_bank(
 @router.post("/bank/micro-deposit")
 async def bank_micro_deposit_init(
     body: MicroDepositInitRequest,
-    current_user: CurrentUser = None,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """Gửi 2 khoản tiền nhỏ (100-999 VND) để xác minh quyền sở hữu tài khoản ngân hàng."""
@@ -315,7 +315,7 @@ async def bank_micro_deposit_init(
 @router.post("/bank/micro-deposit/confirm")
 async def bank_micro_deposit_confirm(
     body: MicroDepositConfirmRequest,
-    current_user: CurrentUser = None,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """Xác nhận 2 khoản tiền nhỏ để hoàn tất xác minh tài khoản ngân hàng."""
@@ -374,7 +374,7 @@ async def bank_micro_deposit_confirm(
 @router.post("/identity")
 async def submit_identity(
     body: IdentitySubmitRequest,
-    current_user: CurrentUser = None,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """Gửi thông tin CCCD/CMND để xác minh danh tính. Admin sẽ duyệt sau."""
@@ -532,7 +532,7 @@ LEVEL_PERMISSIONS = {
 
 
 @router.get("/status")
-async def get_verification_status(current_user: CurrentUser = None):
+async def get_verification_status(current_user: CurrentUser):
     """Trả về trạng thái xác minh hiện tại và hướng dẫn bước tiếp theo."""
     level = current_user.verification_level
 
@@ -581,7 +581,8 @@ async def check_duplicate(
     phone: Optional[str] = Query(None, description="Số điện thoại cần kiểm tra"),
     bank_account: Optional[str] = Query(None, description="Số tài khoản ngân hàng"),
     identity_number: Optional[str] = Query(None, description="Số CCCD/CMND"),
-    current_user: CurrentUser = None,
+    *,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """Kiểm tra trùng lặp real-time cho form validation."""
@@ -648,7 +649,7 @@ def _get_vneid_service() -> VNeIDService:
 # ══════════════════════════════════════════════════════════════
 
 @router.get("/vneid/auth-url", response_model=VNeIDAuthURLResponse)
-async def vneid_auth_url(current_user: CurrentUser = None):
+async def vneid_auth_url(current_user: CurrentUser):
     """
     Generate VNeID OAuth authorization URL.
     Creates a state token, stores in Redis, returns the auth URL.
@@ -682,7 +683,7 @@ async def vneid_auth_url(current_user: CurrentUser = None):
 @router.post("/vneid/callback")
 async def vneid_callback(
     body: VNeIDCallbackRequest,
-    current_user: CurrentUser = None,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -757,7 +758,7 @@ async def vneid_callback(
 # ══════════════════════════════════════════════════════════════
 
 @router.get("/vneid/status")
-async def vneid_status(current_user: CurrentUser = None):
+async def vneid_status(current_user: CurrentUser):
     """
     Check VNeID verification status.
     Returns if user has VNeID-verified identity, verification method,

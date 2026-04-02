@@ -338,7 +338,8 @@ async def attp_check(
 async def blockchain_proof(
     entity_type: str = Query(..., regex="^(order|commission|report)$"),
     entity_id: uuid.UUID = Query(...),
-    current_user: CurrentUser = None,
+    *,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """On-chain audit hash verification: compare stored vs computed hash."""

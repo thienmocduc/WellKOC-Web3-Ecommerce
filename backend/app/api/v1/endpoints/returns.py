@@ -128,7 +128,8 @@ async def list_return_requests(
     status: Optional[str] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    current_user: CurrentUser = None,
+    *,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """

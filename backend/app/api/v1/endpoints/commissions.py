@@ -13,7 +13,8 @@ router = APIRouter(prefix="/commissions", tags=["Commissions"])
 async def list_commissions(
     status: Optional[str]=None, period: Optional[str]=None,
     page: int=Query(1,ge=1), per_page: int=Query(20,ge=1,le=100),
-    current_user: CurrentUser=None, db: AsyncSession=Depends(get_db),
+    *,
+    current_user: CurrentUser, db: AsyncSession=Depends(get_db),
 ):
     q = select(Commission).where(Commission.koc_id == current_user.id)
     if status: q = q.where(Commission.status == status)

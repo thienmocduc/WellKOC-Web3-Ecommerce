@@ -166,7 +166,8 @@ async def list_publish_jobs(
     platform: Optional[str] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    current_user: CurrentUser = None,
+    *,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """List publish jobs for current user with optional filters."""
@@ -304,7 +305,8 @@ async def connect_platform(
 @router.get("/analytics")
 async def publish_analytics(
     days: int = Query(30, ge=1, le=365),
-    current_user: CurrentUser = None,
+    *,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """Cross-platform publishing performance for current user."""

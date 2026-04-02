@@ -37,7 +37,8 @@ async def vendor_dashboard(
     from_date: Optional[datetime] = None,
     to_date: Optional[datetime] = None,
     metric: str = Query("gmv", regex="^(gmv|orders|aov|conversion|koc_performance)$"),
-    current_user: CurrentUser = None,
+    *,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """Vendor dashboard analytics with time series, totals, and period comparison."""
@@ -136,7 +137,7 @@ async def vendor_dashboard(
 
 @router.get("/vendor/realtime")
 async def vendor_realtime(
-    current_user: CurrentUser = None,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """Real-time metrics (last 1 hour): active users, orders in progress, live GMV."""
@@ -200,7 +201,8 @@ async def vendor_koc_performance(
     to_date: Optional[datetime] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    current_user: CurrentUser = None,
+    *,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """KOC performance for vendor's products: orders, GMV, conversion, commission."""
@@ -274,7 +276,8 @@ async def vendor_product_performance(
     to_date: Optional[datetime] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    current_user: CurrentUser = None,
+    *,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """Product-level analytics: views, add-to-cart, purchase, revenue, refund rate."""
@@ -351,7 +354,8 @@ async def vendor_product_performance(
 async def vendor_export(
     from_date: Optional[datetime] = None,
     to_date: Optional[datetime] = None,
-    current_user: CurrentUser = None,
+    *,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """Export vendor analytics as CSV. Returns download URL."""

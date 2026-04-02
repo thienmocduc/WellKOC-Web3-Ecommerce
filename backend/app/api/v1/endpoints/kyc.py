@@ -70,7 +70,8 @@ async def _save_upload(file: UploadFile, user_id: str, doc_type: str) -> str:
 async def upload_kyc(
     front_image: UploadFile = File(..., description="Ảnh mặt trước CCCD"),
     back_image: UploadFile = File(..., description="Ảnh mặt sau CCCD"),
-    current_user: CurrentUser = None,
+    *,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     """Upload CCCD front and back images for KYC verification."""
@@ -120,7 +121,7 @@ async def upload_kyc(
 # ══════════════════════════════════════════════════════════════
 
 @router.get("/status")
-async def get_kyc_status(current_user: CurrentUser = None):
+async def get_kyc_status(current_user: CurrentUser):
     """Get the current user's KYC verification status."""
     kyc_data = current_user.kyc_data or {}
 
