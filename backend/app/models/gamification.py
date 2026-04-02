@@ -229,7 +229,6 @@ class Achievement(Base):
     category: Mapped[str] = mapped_column(String(30))
     description: Mapped[str] = mapped_column(Text)
     icon: Mapped[str] = mapped_column(String(10))
-    wk_reward: Mapped[int] = mapped_column(Integer, default=0)
     wk_reward: Mapped[float] = mapped_column(Numeric(18, 8), default=0)
     is_nft_badge: Mapped[bool] = mapped_column(Boolean, default=False)
     nft_token_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -291,7 +290,6 @@ class Mission(Base):
     target_count: Mapped[int] = mapped_column(Integer, default=1)
 
     # Rewards
-    wk_reward: Mapped[int] = mapped_column(Integer, default=0)
     wk_reward: Mapped[float] = mapped_column(Numeric(18, 8), default=0)
     achievement_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
@@ -358,7 +356,6 @@ class DailyCheckin(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     checkin_date: Mapped[date] = mapped_column(Date)
     streak_day: Mapped[int] = mapped_column(Integer, default=1)
-    wk_earned: Mapped[int] = mapped_column(Integer, default=0)
     wk_earned: Mapped[float] = mapped_column(Numeric(18, 8), default=0)
     bonus_reason: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # "streak_7", "weekend", etc.
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
