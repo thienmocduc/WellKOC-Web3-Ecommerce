@@ -1010,7 +1010,7 @@ export default function Dashboard() {
                 { label: 'Nạp tiền', desc: 'Từ ngân hàng/MoMo/Crypto', icon: '💰' },
                 { label: 'Rút tiền', desc: 'Về ngân hàng', icon: '🏦' },
                 { label: 'Chuyển WK Token', desc: 'Tới ví khác', icon: '📤' },
-                { label: 'Mua WK Token', desc: 'Đổi VND sang WK', icon: '🔄' },
+                { label: 'Đổi WK Token', desc: 'Kiếm WK qua hoạt động', icon: '🔄' },
               ].map((a, i) => (
                 <div key={i} className="card card-hover" style={{ padding: 16, textAlign: 'center', cursor: 'pointer' }} onClick={() => showToast(`${a.label} — đang kết nối blockchain. Vui lòng thử lại sau.`)}>
                   <div style={{ fontSize: '1.5rem', marginBottom: 6 }}>{a.icon}</div>
