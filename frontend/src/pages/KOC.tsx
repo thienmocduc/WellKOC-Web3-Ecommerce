@@ -505,6 +505,13 @@ export default function KOC() {
   const [generatedShareLink, setGeneratedShareLink] = useState('');
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
 
+  /* ── Affiliate product picker ─── */
+  const [showAffPicker, setShowAffPicker] = useState(false);
+  const [pickerProducts, setPickerProducts] = useState<{id:string;name:string;price:number;image?:string}[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState('');
+  const [pickerPlatform, setPickerPlatform] = useState('direct');
+
   /* ── Community teams from API ─── */
   const [communityTeamsData, setCommunityTeamsData] = useState(communityTeams);
   const [communityStatsData, setCommunityStatsData] = useState(communityStats);
@@ -623,6 +630,50 @@ export default function KOC() {
       return fallback;
     } finally {
       setIsGeneratingLink(false);
+    }
+  };
+
+  const openAffPicker = async () => {
+    setShowAffPicker(true);
+    setPickerLoading(true);
+    setPickerSearch('');
+    try {
+      const res = await fetch(`${API_BASE}/products?per_page=50&status=active`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('API');
+      const data = await res.json();
+      const items = data.items || data || [];
+      setPickerProducts(items.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        image: p.image_url || p.images?.[0],
+      })));
+    } catch {
+      // keep empty; user can still type a product ID manually
+    } finally {
+      setPickerLoading(false);
+    }
+  };
+
+  const generateAffLink = async (productId: string, productName: string) => {
+    setShowAffPicker(false);
+    try {
+      const res = await fetch(`${API_BASE}/share/generate-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ product_id: productId, platform: pickerPlatform, campaign_name: 'affiliate' }),
+      });
+      if (!res.ok) throw new Error('API');
+      const data = await res.json();
+      const link = data.url || data.affiliate_link || data.link || `https://wellkoc.com/p/${productId}?ref=${userRefCode}`;
+      setAffLinks(prev => [...prev, { id: Date.now(), product: productName, link, clicks: 0, conversions: 0, revenue: '0₫' }]);
+      showToast('✅ Đã tạo link affiliate!');
+    } catch {
+      const link = `https://wellkoc.com/p/${productId}?ref=${userRefCode}&utm_source=${pickerPlatform}`;
+      setAffLinks(prev => [...prev, { id: Date.now(), product: productName, link, clicks: 0, conversions: 0, revenue: '0₫' }]);
+      showToast('Link tạo offline — sẽ sync khi server sẵn sàng');
     }
   };
 
@@ -1468,31 +1519,15 @@ export default function KOC() {
               <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
                 <div className="flex" style={{ justifyContent: 'space-between' }}>
                   <span style={{ fontWeight: 700, fontSize: '.88rem' }}>Link Affiliate</span>
-                  <button className="btn btn-primary btn-sm" onClick={async () => {
-                    try {
-                      const res = await fetch(`${API_BASE}/share/generate-link`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                        },
-                        body: JSON.stringify({ product_id: Date.now(), platform: 'direct', campaign: 'affiliate' }),
-                      });
-                      if (!res.ok) throw new Error('API error');
-                      const data = await res.json();
-                      const newLink = { id: Date.now(), product: data.product_name || 'Sản phẩm mới', link: data.affiliate_link || data.link, clicks: 0, conversions: 0, revenue: '0₫' };
-                      setAffLinks(prev => [...prev, newLink]);
-                      showToast('Đã tạo link affiliate mới');
-                      setServerNotice('');
-                    } catch {
-                      // Fallback: generate mock link
-                      const id = Date.now();
-                      const newLink = { id, product: 'Sản phẩm mới', link: `https://wellkoc.com/p/${id.toString().slice(-4)}?ref=${userRefCode}`, clicks: 0, conversions: 0, revenue: '0₫' };
-                      setAffLinks(prev => [...prev, newLink]);
-                      setServerNotice('Đang kết nối server...');
-                      showToast('Đã tạo link affiliate mới (offline)');
-                    }
-                  }}>+ Tạo link mới</button>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <select value={pickerPlatform} onChange={e => setPickerPlatform(e.target.value)}
+                      style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text-2)', fontSize: '.75rem', cursor: 'pointer' }}>
+                      {['direct','tiktok','instagram','facebook','youtube','zalo','telegram'].map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                    <button className="btn btn-primary btn-sm" onClick={openAffPicker}>+ Chọn sản phẩm</button>
+                  </div>
                 </div>
               </div>
               <div style={{ overflowX: 'auto' }}>
@@ -2880,6 +2915,49 @@ export default function KOC() {
             {renderContent()}
           </div>
         </div>
+
+      {/* ── Affiliate Product Picker Modal ── */}
+      {showAffPicker && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          onClick={() => setShowAffPicker(false)}>
+          <div style={{ background: 'var(--surface-card)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 520, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontWeight: 700, fontSize: '1rem' }}>🔗 Chọn sản phẩm để tạo link affiliate</h3>
+              <button onClick={() => setShowAffPicker(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-3)' }}>✕</button>
+            </div>
+            <input
+              value={pickerSearch} onChange={e => setPickerSearch(e.target.value)}
+              placeholder="🔍 Tìm sản phẩm..."
+              style={{ padding: '9px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text-1)', fontSize: '.85rem', marginBottom: 12, outline: 'none' }}
+            />
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {pickerLoading ? (
+                <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-3)' }}>Đang tải sản phẩm...</div>
+              ) : pickerProducts.filter(p => !pickerSearch || p.name.toLowerCase().includes(pickerSearch.toLowerCase())).length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-3)', fontSize: '.85rem' }}>
+                  {pickerProducts.length === 0 ? 'Chưa có sản phẩm nào. Vendor cần đăng sản phẩm trước.' : 'Không tìm thấy sản phẩm.'}
+                </div>
+              ) : pickerProducts
+                .filter(p => !pickerSearch || p.name.toLowerCase().includes(pickerSearch.toLowerCase()))
+                .map(p => (
+                  <button key={p.id} onClick={() => generateAffLink(p.id, p.name)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-1)', cursor: 'pointer', textAlign: 'left', transition: 'var(--t-fast)' }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--bg-2)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>
+                      {p.image ? <img src={p.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '📦'}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: '.85rem', color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                      <div style={{ fontSize: '.75rem', color: 'var(--text-3)' }}>{p.price?.toLocaleString('vi-VN')}₫</div>
+                    </div>
+                    <span style={{ fontSize: '.75rem', color: 'var(--c4-500)', fontWeight: 600, flexShrink: 0 }}>+ Lấy link</span>
+                  </button>
+                ))
+              }
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
