@@ -14,17 +14,32 @@ from sqlalchemy.pool import NullPool
 from app.core.config import settings
 
 # ── Engine ──────────────────────────────────────────────────
-_is_pooled = settings.APP_ENV not in ("test", "production")
+# Production uses Supabase transaction pooler (port 6543) — supports a small
+# real pool and requires SSL + no prepared statements (PgBouncer limitation).
+_is_production = settings.APP_ENV == "production"
+_is_test = settings.APP_ENV == "test"
+
+if _is_production:
+    # Small pool works with transaction pooler; avoids per-request reconnect cost
+    _pool_kwargs: dict = {"pool_size": 3, "max_overflow": 2, "pool_timeout": 10, "pool_recycle": 300}
+    _connect_args: dict = {"ssl": "require", "prepared_statement_cache_size": 0, "command_timeout": 15}
+    _poolclass = None
+elif _is_test:
+    _pool_kwargs = {}
+    _connect_args = {}
+    _poolclass = NullPool
+else:
+    _pool_kwargs = {"pool_size": settings.DB_POOL_SIZE, "max_overflow": settings.DB_MAX_OVERFLOW}
+    _connect_args = {}
+    _poolclass = None
 
 engine: AsyncEngine = create_async_engine(
     settings.DATABASE_URL,
-    # pool_size/max_overflow are invalid with NullPool
-    **({"pool_size": settings.DB_POOL_SIZE, "max_overflow": settings.DB_MAX_OVERFLOW} if _is_pooled else {}),
+    **_pool_kwargs,
     echo=settings.DB_ECHO,
     future=True,
-    poolclass=None if _is_pooled else NullPool,
-    # Supabase Supavisor pooler requires SSL + no prepared statements
-    connect_args={"ssl": "require", "prepared_statement_cache_size": 0} if settings.APP_ENV == "production" else {},
+    poolclass=_poolclass,
+    connect_args=_connect_args,
 )
 
 # ── Session factory ─────────────────────────────────────────
