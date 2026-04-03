@@ -14,22 +14,17 @@ from sqlalchemy.pool import NullPool
 from app.core.config import settings
 
 # ── Engine ──────────────────────────────────────────────────
-_connect_args: dict = {}
-if settings.APP_ENV == "production":
-    # Supabase Supavisor pooler requires SSL and no prepared statements
-    _connect_args = {
-        "ssl": "require",
-        "prepared_statement_cache_size": 0,
-    }
+_is_pooled = settings.APP_ENV not in ("test", "production")
 
 engine: AsyncEngine = create_async_engine(
     settings.DATABASE_URL,
-    pool_size=settings.DB_POOL_SIZE,
-    max_overflow=settings.DB_MAX_OVERFLOW,
+    # pool_size/max_overflow are invalid with NullPool
+    **({"pool_size": settings.DB_POOL_SIZE, "max_overflow": settings.DB_MAX_OVERFLOW} if _is_pooled else {}),
     echo=settings.DB_ECHO,
     future=True,
-    poolclass=NullPool if settings.APP_ENV in ("test", "production") else None,
-    connect_args=_connect_args,
+    poolclass=None if _is_pooled else NullPool,
+    # Supabase Supavisor pooler requires SSL + no prepared statements
+    connect_args={"ssl": "require", "prepared_statement_cache_size": 0} if settings.APP_ENV == "production" else {},
 )
 
 # ── Session factory ─────────────────────────────────────────
