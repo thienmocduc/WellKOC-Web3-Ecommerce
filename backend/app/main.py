@@ -82,8 +82,8 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def wk_access_guard(request: Request, call_next):
         path = request.url.path
-        # Only guard /api/* paths in production
-        if settings.is_production and path.startswith("/api/"):
+        # Only guard /api/* paths in production when WK_ACCESS_TOKEN is explicitly set
+        if settings.is_production and settings.WK_ACCESS_TOKEN and path.startswith("/api/"):
             token = request.headers.get("X-WK-Access", "")
             expected = settings.wk_api_token
             if not token or not __import__("hmac").compare_digest(token, expected):
