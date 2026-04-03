@@ -612,10 +612,10 @@ export default function MainLayout() {
 
               {userMenuOpen && (
                 <div style={{
-                  position: 'absolute', top: '100%', right: 0, marginTop: 4,
+                  position: 'fixed', top: 68, right: 12, marginTop: 0,
                   background: 'var(--surface-card)', border: '1px solid var(--border)',
                   borderRadius: 12, padding: 6, minWidth: 180,
-                  boxShadow: 'var(--shadow-float)', zIndex: 1010,
+                  boxShadow: 'var(--shadow-float)', zIndex: 9999,
                 }}>
                   <Link to="/dashboard?tab=profile" onClick={() => setUserMenuOpen(false)} style={{
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%',
