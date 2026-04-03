@@ -1,6 +1,7 @@
 """
 WellKOC — Async SQLAlchemy Database Configuration
 """
+import ssl
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -18,18 +19,23 @@ _is_production = settings.APP_ENV == "production"
 _is_test = settings.APP_ENV == "test"
 
 # In production, prefer the Supabase TRANSACTION pooler (port 6543).
-# The session pooler (port 5432) sometimes drops idle connections on Render.
-# Auto-rewrite the URL so we don't need to update the Render env var.
+# Auto-rewrite so we don't need a Render env var change.
 _db_url = settings.DATABASE_URL
 if _is_production and "pooler.supabase.com:5432/" in _db_url:
     _db_url = _db_url.replace("pooler.supabase.com:5432/", "pooler.supabase.com:6543/")
 
 if _is_production:
+    # Supabase Supavisor uses a self-signed cert in the chain.
+    # Use PROTOCOL_TLS_CLIENT with check_hostname/verify disabled.
+    _ssl_ctx = ssl.create_default_context()
+    _ssl_ctx.check_hostname = False
+    _ssl_ctx.verify_mode = ssl.CERT_NONE
+
     _pool_kwargs: dict = {}
     _connect_args: dict = {
-        "ssl": True,                          # require SSL (asyncpg accepts bool)
+        "ssl": _ssl_ctx,
         "prepared_statement_cache_size": 0,   # required for PgBouncer
-        "timeout": 15,                        # asyncpg connect timeout (default 60 s)
+        "timeout": 15,
         "command_timeout": 30,
     }
     _poolclass = NullPool
