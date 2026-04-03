@@ -14,16 +14,21 @@ from sqlalchemy.pool import NullPool
 from app.core.config import settings
 
 # ── Engine ──────────────────────────────────────────────────
-# Production uses Supabase transaction pooler (port 6543) — supports a small
-# real pool and requires SSL + no prepared statements (PgBouncer limitation).
+# Production: NullPool (one connection per request) — safest with Supabase
+# session pooler. Each request opens a fresh asyncpg connection with a 12 s
+# timeout so cold connections don't hang for the asyncpg default 60 s.
 _is_production = settings.APP_ENV == "production"
 _is_test = settings.APP_ENV == "test"
 
 if _is_production:
-    # Small pool works with transaction pooler; avoids per-request reconnect cost
-    _pool_kwargs: dict = {"pool_size": 3, "max_overflow": 2, "pool_timeout": 10, "pool_recycle": 300}
-    _connect_args: dict = {"ssl": "require", "prepared_statement_cache_size": 0, "command_timeout": 15}
-    _poolclass = None
+    _pool_kwargs: dict = {}
+    _connect_args: dict = {
+        "ssl": "require",
+        "prepared_statement_cache_size": 0,
+        "timeout": 12,        # TCP+SSL handshake timeout (asyncpg default is 60 s)
+        "command_timeout": 25, # per-query timeout
+    }
+    _poolclass = NullPool
 elif _is_test:
     _pool_kwargs = {}
     _connect_args = {}
