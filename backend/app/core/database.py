@@ -25,15 +25,14 @@ if _is_production and "pooler.supabase.com:5432/" in _db_url:
     _db_url = _db_url.replace("pooler.supabase.com:5432/", "pooler.supabase.com:6543/")
 
 if _is_production:
-    # Small pool works well with PgBouncer transaction mode
-    _pool_kwargs: dict = {"pool_size": 3, "max_overflow": 2, "pool_recycle": 300, "pool_pre_ping": True}
+    _pool_kwargs: dict = {}
     _connect_args: dict = {
-        "ssl": "require",
-        "prepared_statement_cache_size": 0,  # required for PgBouncer transaction mode
-        "timeout": 12,         # asyncpg TCP+SSL connect timeout (default 60 s)
-        "command_timeout": 25, # per-query timeout
+        "ssl": True,                          # require SSL (asyncpg accepts bool)
+        "prepared_statement_cache_size": 0,   # required for PgBouncer
+        "timeout": 15,                        # asyncpg connect timeout (default 60 s)
+        "command_timeout": 30,
     }
-    _poolclass = None
+    _poolclass = NullPool
 elif _is_test:
     _pool_kwargs = {}
     _connect_args = {}
