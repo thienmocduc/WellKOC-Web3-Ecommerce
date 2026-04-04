@@ -10,10 +10,11 @@ POST /auth/logout
 GET  /auth/me
 """
 from datetime import datetime, timedelta, timezone
-from typing import Annotated
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -170,3 +171,85 @@ async def get_me(
 ):
     """Get current authenticated user profile"""
     return current_user
+
+
+@router.get("/profile", response_model=UserMeResponse)
+async def get_profile(
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Alias for /me — returns current user profile."""
+    return current_user
+
+
+class ProfileUpdate(BaseModel):
+    display_name: Optional[str] = None
+    phone: Optional[str] = None
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = None
+
+@router.put("/profile")
+async def update_profile(
+    body: ProfileUpdate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Update current user's profile fields."""
+    if body.display_name is not None: current_user.display_name = body.display_name
+    if body.phone is not None: current_user.phone = body.phone
+    if body.avatar_url is not None: current_user.avatar_url = body.avatar_url
+    if body.bio is not None: current_user.bio = body.bio
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
+
+@router.post("/sync")
+async def sync_user(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Sync Supabase user to backend DB (called after login to ensure record exists)."""
+    # User is already upserted in get_current_user — just return current state
+    return {"id": str(current_user.id), "email": current_user.email, "role": current_user.role, "synced": True}
+
+
+@router.post("/wallet/link")
+async def link_wallet(
+    body: dict,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Link a wallet address to the user's account (alias for /wallet/connect)."""
+    wallet_address = body.get("wallet_address") or body.get("address")
+    if not wallet_address:
+        raise HTTPException(400, "wallet_address required")
+    current_user.wallet_address = wallet_address
+    db.add(current_user)
+    await db.commit()
+    return {"status": "linked", "wallet_address": wallet_address}
+
+
+@router.post("/referral/apply")
+async def apply_referral(
+    body: dict,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Apply a referral code to the current user (if not already referred)."""
+    code = body.get("referral_code", "").strip().upper()
+    if not code:
+        raise HTTPException(400, "referral_code required")
+    if current_user.referred_by_id:
+        raise HTTPException(400, "Tài khoản đã áp dụng mã giới thiệu")
+    from sqlalchemy import select as _select
+    r = await db.execute(_select(User).where(User.referral_code == code))
+    referrer = r.scalar_one_or_none()
+    if not referrer:
+        raise HTTPException(404, "Mã giới thiệu không hợp lệ")
+    if str(referrer.id) == str(current_user.id):
+        raise HTTPException(400, "Không thể dùng mã giới thiệu của chính mình")
+    current_user.referred_by_id = referrer.id
+    db.add(current_user)
+    await db.commit()
+    return {"status": "applied", "referred_by": str(referrer.id)}

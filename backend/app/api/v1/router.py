@@ -19,6 +19,7 @@ from app.api.v1.endpoints import (
     events, compliance, analytics,
     verification,
     chatbot,
+    notifications,
 )
 
 api_router = APIRouter()
@@ -27,6 +28,7 @@ api_router = APIRouter()
 api_router.include_router(auth.router)
 api_router.include_router(kyc.router)
 api_router.include_router(verification.router)
+api_router.include_router(notifications.router)
 
 # ── Commerce ─────────────────────────────────────────────────
 api_router.include_router(products.router)

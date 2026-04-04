@@ -137,5 +137,58 @@ async def track_order(order_id: UUID, current_user: CurrentUser, db: AsyncSessio
     if not order: raise HTTPException(404)
     return {"tracking_number": order.tracking_number, "carrier": order.shipping_carrier, "status": order.status, "history": order.status_history or []}
 
+
+class CancelReq(BaseModel):
+    reason: Optional[str] = None
+
+@router.post("/{order_id}/cancel", status_code=200)
+async def cancel_order(order_id: UUID, body: CancelReq, current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
+    """Buyer cancels an order (only allowed if pending/confirmed)."""
+    r = await db.execute(select(Order).where(Order.id == order_id))
+    order = r.scalar_one_or_none()
+    if not order: raise HTTPException(404, "Đơn hàng không tồn tại")
+    if str(order.buyer_id) != str(current_user.id) and not current_user.is_admin:
+        raise HTTPException(403, "Không có quyền huỷ đơn hàng này")
+    cancellable = {OrderStatus.PENDING, OrderStatus.CONFIRMED}
+    if order.status not in cancellable:
+        raise HTTPException(400, f"Không thể huỷ đơn ở trạng thái '{order.status}'")
+    order.status = OrderStatus.CANCELLED
+    order.status_history = (order.status_history or []) + [{
+        "status": OrderStatus.CANCELLED, "timestamp": datetime.now(timezone.utc).isoformat(),
+        "actor": str(current_user.id), "reason": body.reason,
+    }]
+    db.add(order)
+    await db.commit()
+    return {"status": "cancelled", "order_id": str(order_id)}
+
+
+class ReturnReq(BaseModel):
+    reason: str
+    description: Optional[str] = None
+
+@router.post("/{order_id}/return", status_code=201)
+async def request_return(order_id: UUID, body: ReturnReq, current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
+    """Buyer requests a return/refund after delivery."""
+    r = await db.execute(select(Order).where(Order.id == order_id))
+    order = r.scalar_one_or_none()
+    if not order: raise HTTPException(404, "Đơn hàng không tồn tại")
+    if str(order.buyer_id) != str(current_user.id):
+        raise HTTPException(403, "Không có quyền yêu cầu hoàn trả")
+    if order.status != OrderStatus.DELIVERED:
+        raise HTTPException(400, "Chỉ có thể hoàn trả đơn hàng đã giao")
+    # Create return request record
+    from app.models.return_request import ReturnRequest
+    ret = ReturnRequest(
+        order_id=order_id, buyer_id=current_user.id,
+        reason=body.reason, description=body.description,
+    )
+    db.add(ret)
+    order.status = OrderStatus.REFUNDING
+    db.add(order)
+    await db.commit()
+    await db.refresh(ret)
+    return {"id": str(ret.id), "status": ret.status, "order_id": str(order_id)}
+
+
 def _order_dict(o: Order) -> dict:
     return {"id": str(o.id), "order_number": o.order_number, "status": o.status, "total": float(o.total), "items": o.items, "payment_method": o.payment_method, "created_at": o.created_at.isoformat() if o.created_at else None, "delivered_at": o.delivered_at.isoformat() if o.delivered_at else None}
