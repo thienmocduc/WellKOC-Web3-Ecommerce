@@ -167,6 +167,23 @@ async def share_analytics(
     }
 
 
+@router.get("/affiliate-links")
+async def get_affiliate_links(
+    current_user: User = Depends(require_role([UserRole.KOC])),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return KOC's affiliate links as an array (frontend-compatible format)."""
+    from app.models.order import Commission, CommissionStatus
+    r = await db.execute(
+        select(func.sum(Commission.amount), func.count(Commission.id))
+        .where(Commission.koc_id == current_user.id, Commission.status == CommissionStatus.SETTLED)
+    )
+    total_revenue, total_orders = r.one()
+    # Return empty array — populated when affiliate_links table is available
+    # Frontend will show empty state and use the generate-link flow to add new links
+    return []
+
+
 @router.get("/analytics/links")
 async def analytics_links(
     current_user: User = Depends(require_role([UserRole.KOC])),

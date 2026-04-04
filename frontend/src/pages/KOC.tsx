@@ -555,8 +555,8 @@ export default function KOC() {
           const mapped = res.items.map((o: any) => ({
             id: o.order_number || o.id,
             date: (o.created_at || '').slice(0, 10),
-            items: (o.items || []).map((i: any) => ({ name: i.product_name || i.name, qty: i.quantity, price: i.unit_price })),
-            total: o.total_amount || 0,
+            items: (o.items || []).map((i: any) => ({ name: i.name || i.product_name, qty: i.quantity, price: i.price || i.unit_price || 0 })),
+            total: o.total || o.total_amount || 0,
             status: o.status || 'pending',
             payment: o.payment_method || '—',
             trackingCode: o.tracking_code,
@@ -610,7 +610,7 @@ export default function KOC() {
         body: JSON.stringify({
           product_id: product.id,
           platform,
-          campaign: 'koc_share',
+          campaign_name: 'koc_share',
         }),
       });
       if (!res.ok) throw new Error('API error');
@@ -648,7 +648,7 @@ export default function KOC() {
         id: p.id,
         name: p.name,
         price: p.price,
-        image: p.image_url || p.images?.[0],
+        image: p.thumbnail_url || p.image_url || p.images?.[0],
       })));
     } catch {
       // keep empty; user can still type a product ID manually
