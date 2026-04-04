@@ -3,17 +3,25 @@ WellKOC — FastAPI Dependencies
 Reusable Depends() functions for auth, role guards, pagination.
 
 Auth strategy:
-  - Frontend uses Supabase Auth → sends Supabase JWT (iss: supabase)
-  - Backend validates Supabase JWT using SUPABASE_JWT_SECRET
-  - User is upserted into local DB on first request (auto-provision)
-  - Wallet login still returns backend JWT (python-jose) as fallback
+  - Frontend uses Supabase Auth → sends Supabase JWT
+  - Supabase now uses ECC (P-256) / ES256 signing keys
+  - Backend fetches JWKS from Supabase and caches public keys
+  - Falls back to legacy HS256 SUPABASE_JWT_SECRET if JWKS fails
+  - Wallet login uses backend HS256 JWT as final fallback
 """
+import time
+import httpx
+from functools import lru_cache
 from typing import Annotated, Optional
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
+from jose.utils import base64url_decode
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
+import json
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,45 +32,129 @@ from app.models.user import User, UserRole
 security = HTTPBearer(auto_error=False)
 
 ALGORITHM = "HS256"
-SUPABASE_ALGORITHM = "HS256"
+SUPABASE_PROJECT_ID = "gltdkplfukjfpajwftzd"
+SUPABASE_JWKS_URL = f"https://{SUPABASE_PROJECT_ID}.supabase.co/auth/v1/.well-known/jwks.json"
+
+# Simple in-memory JWKS cache (refreshed every 24h)
+_jwks_cache: dict = {"keys": [], "fetched_at": 0}
+_JWKS_TTL = 86400  # 24 hours
 
 
-def _decode_token(token: str) -> dict:
+async def _get_jwks() -> list:
+    """Fetch and cache Supabase JWKS public keys."""
+    now = time.time()
+    if _jwks_cache["keys"] and (now - _jwks_cache["fetched_at"]) < _JWKS_TTL:
+        return _jwks_cache["keys"]
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(SUPABASE_JWKS_URL)
+            if resp.status_code == 200:
+                data = resp.json()
+                _jwks_cache["keys"] = data.get("keys", [])
+                _jwks_cache["fetched_at"] = now
+                return _jwks_cache["keys"]
+    except Exception:
+        pass
+    return _jwks_cache["keys"]  # return stale cache on failure
+
+
+async def _decode_supabase_token(token: str) -> Optional[dict]:
     """
-    Try decoding as Supabase JWT first, then fall back to backend JWT.
-    Returns the decoded payload dict.
-    Raises JWTError if both fail.
+    Validate a Supabase JWT using JWKS (ES256) or legacy HS256 secret.
+    Returns payload dict or None if invalid.
     """
-    # Supabase JWTs have iss = "https://<project>.supabase.co/auth/v1"
-    # Try Supabase secret first if configured
+    # 1. Try JWKS / ES256 (new ECC keys)
+    keys = await _get_jwks()
+    for key_data in keys:
+        try:
+            payload = jwt.decode(
+                token,
+                key_data,
+                algorithms=["ES256", "RS256"],
+                options={"verify_aud": False},
+            )
+            payload["_source"] = "supabase"
+            return payload
+        except JWTError:
+            continue
+
+    # 2. Fall back to legacy HS256 shared secret
     if settings.SUPABASE_JWT_SECRET:
         try:
             payload = jwt.decode(
                 token,
                 settings.SUPABASE_JWT_SECRET,
-                algorithms=[SUPABASE_ALGORITHM],
-                options={"verify_aud": False},  # Supabase sets aud="authenticated"
+                algorithms=["HS256"],
+                options={"verify_aud": False},
             )
             payload["_source"] = "supabase"
             return payload
         except JWTError:
-            pass  # Fall through to backend JWT
+            pass
+
+    return None
+
+
+def _is_supabase_token(token: str) -> bool:
+    """Quick check: decode header to see if issuer looks like Supabase."""
+    try:
+        header = jwt.get_unverified_header(token)
+        claims = jwt.get_unverified_claims(token)
+        iss = claims.get("iss", "")
+        return "supabase" in iss or header.get("alg") in ("ES256", "RS256")
+    except Exception:
+        return False
+
+
+async def get_current_user(
+    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security)],
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Extract and validate JWT (Supabase ES256/HS256 or backend HS256), return User."""
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token không được cung cấp",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = credentials.credentials
+
+    # Try Supabase token first
+    if _is_supabase_token(token):
+        payload = await _decode_supabase_token(token)
+        if payload:
+            return await _upsert_supabase_user(payload, db)
+        raise HTTPException(status_code=401, detail="Token Supabase không hợp lệ hoặc đã hết hạn")
 
     # Backend JWT (wallet login, etc.)
-    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
-    payload["_source"] = "backend"
-    return payload
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token đã hết hạn hoặc không hợp lệ")
+
+    user_id: str = payload.get("sub")
+    token_type: str = payload.get("type")
+    if not user_id or token_type != "access":
+        raise HTTPException(status_code=401, detail="Token không hợp lệ")
+
+    # Check Redis blacklist
+    from app.core.redis_client import redis_client
+    if await redis_client.get(f"logout:{user_id}"):
+        raise HTTPException(status_code=401, detail="Token đã bị huỷ")
+
+    result = await db.execute(select(User).where(User.id == UUID(user_id)))
+    user = result.scalar_one_or_none()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="Tài khoản không tồn tại hoặc đã bị vô hiệu hoá")
+    return user
 
 
 async def _upsert_supabase_user(payload: dict, db: AsyncSession) -> User:
-    """
-    Auto-provision user from Supabase JWT payload into local DB.
-    Supabase sub = user UUID, email in payload.
-    """
+    """Auto-provision user from Supabase JWT payload into local DB."""
     sub = payload.get("sub")
     if not sub:
         raise HTTPException(status_code=401, detail="Token thiếu sub")
-
     try:
         user_id = UUID(sub)
     except ValueError:
@@ -72,7 +164,6 @@ async def _upsert_supabase_user(payload: dict, db: AsyncSession) -> User:
     user = result.scalar_one_or_none()
 
     if not user:
-        # Auto-create user from Supabase token
         meta = payload.get("user_metadata") or {}
         app_meta = payload.get("app_metadata") or {}
         email = payload.get("email") or meta.get("email", "")
@@ -93,48 +184,6 @@ async def _upsert_supabase_user(payload: dict, db: AsyncSession) -> User:
         )
         db.add(user)
         await db.flush()
-
-    return user
-
-
-async def get_current_user(
-    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security)],
-    db: AsyncSession = Depends(get_db),
-) -> User:
-    """Extract and validate JWT (Supabase or backend), return current User."""
-    if not credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token không được cung cấp",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    try:
-        payload = _decode_token(credentials.credentials)
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token đã hết hạn hoặc không hợp lệ")
-
-    source = payload.get("_source")
-
-    if source == "supabase":
-        user = await _upsert_supabase_user(payload, db)
-        return user
-
-    # Backend JWT path (wallet login)
-    user_id: str = payload.get("sub")
-    token_type: str = payload.get("type")
-    if not user_id or token_type != "access":
-        raise HTTPException(status_code=401, detail="Token không hợp lệ")
-
-    # Check Redis blacklist
-    from app.core.redis_client import redis_client
-    if await redis_client.get(f"logout:{user_id}"):
-        raise HTTPException(status_code=401, detail="Token đã bị huỷ")
-
-    result = await db.execute(select(User).where(User.id == UUID(user_id)))
-    user = result.scalar_one_or_none()
-    if not user or not user.is_active:
-        raise HTTPException(status_code=401, detail="Tài khoản không tồn tại hoặc đã bị vô hiệu hoá")
 
     return user
 
