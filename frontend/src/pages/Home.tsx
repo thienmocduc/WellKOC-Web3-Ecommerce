@@ -76,34 +76,34 @@ export default function Home() {
           <div className="ring ring-4" />
         </div>
 
-        <div className="hero-content" style={{ maxWidth: 1100, padding: '16px 16px 40px', boxSizing: 'border-box', width: '100%' }}>
-          <div className="section-badge" style={{ marginBottom: 24, flexWrap: 'wrap', textAlign: 'center' }}>
+        <div className="hero-content" style={{ maxWidth: 1100, padding: 'clamp(8px,2vw,16px) 16px clamp(20px,3vw,40px)', boxSizing: 'border-box', width: '100%' }}>
+          <div className="section-badge" style={{ marginBottom: 'clamp(10px,2vw,24px)', flexWrap: 'wrap', textAlign: 'center' }}>
             <span className="dot-pulse dot-indigo" /> Conscious Community Commerce · Polygon
           </div>
 
-          <h1 className="display-xl" style={{ marginBottom: 16, lineHeight: 1.15, fontSize: 'clamp(2rem, 8vw, 5rem)', wordBreak: 'keep-all', overflowWrap: 'break-word' }}>
+          <h1 className="display-xl" style={{ marginBottom: 'clamp(8px,1.5vw,16px)', lineHeight: 1.15, fontSize: 'clamp(1.7rem, 7vw, 5rem)', wordBreak: 'keep-all', overflowWrap: 'break-word' }}>
             <span className="gradient-text">{t('home.hero.title')}</span>
           </h1>
 
-          <div style={{ textAlign: 'center', marginBottom: 36, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', width: '100%' }}>
-            <div style={{ fontStyle: 'italic', fontSize: 'clamp(1.1rem, 4.5vw, 2.4rem)', fontWeight: 700, letterSpacing: '.03em', wordBreak: 'keep-all', overflowWrap: 'break-word', background: 'var(--chakra-text)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+          <div style={{ textAlign: 'center', marginBottom: 'clamp(14px,3vw,36px)', display: 'flex', flexDirection: 'column', gap: 'clamp(6px,1.5vw,14px)', alignItems: 'center', width: '100%' }}>
+            <div style={{ fontStyle: 'italic', fontSize: 'clamp(0.95rem, 4vw, 2.4rem)', fontWeight: 700, letterSpacing: '.03em', wordBreak: 'keep-all', overflowWrap: 'break-word', background: 'var(--chakra-text)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
               "{t('home.hero.line1')}"
             </div>
-            <div style={{ fontStyle: 'italic', fontSize: 'clamp(1.1rem, 4.5vw, 2.4rem)', fontWeight: 700, letterSpacing: '.03em', wordBreak: 'keep-all', overflowWrap: 'break-word', background: 'var(--chakra-text)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+            <div style={{ fontStyle: 'italic', fontSize: 'clamp(0.95rem, 4vw, 2.4rem)', fontWeight: 700, letterSpacing: '.03em', wordBreak: 'keep-all', overflowWrap: 'break-word', background: 'var(--chakra-text)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
               "{t('home.hero.line2')}"
             </div>
-            <div style={{ fontStyle: 'italic', fontSize: 'clamp(1.1rem, 4.8vw, 2.6rem)', fontWeight: 800, letterSpacing: '.03em', wordBreak: 'keep-all', overflowWrap: 'break-word', background: 'linear-gradient(135deg, #22c55e, #06b6d4, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+            <div style={{ fontStyle: 'italic', fontSize: 'clamp(0.95rem, 4.2vw, 2.6rem)', fontWeight: 800, letterSpacing: '.03em', wordBreak: 'keep-all', overflowWrap: 'break-word', background: 'linear-gradient(135deg, #22c55e, #06b6d4, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
               "{t('home.hero.line3')}"
             </div>
           </div>
 
           <p
             style={{
-              fontSize: 'clamp(1.1rem, 2vw, 1.35rem)',
+              fontSize: 'clamp(0.88rem, 2.5vw, 1.35rem)',
               color: 'var(--text-2)',
-              lineHeight: 1.9,
+              lineHeight: 1.7,
               maxWidth: 680,
-              margin: '0 auto 40px',
+              margin: '0 auto clamp(18px,3vw,40px)',
             }}
           >
             {t('home.hero.desc.prefix')} <strong style={{ color: 'var(--text-1)' }}>{t('home.hero.desc.buyer')}</strong> ·{' '}
@@ -116,20 +116,20 @@ export default function Home() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 16,
+              gap: 12,
               flexWrap: 'wrap',
             }}
           >
-            <Link to="/login" className="btn btn-primary btn-lg" style={{ background: 'linear-gradient(135deg, #22c55e, #06b6d4)', fontSize: '1.05rem', padding: '14px 36px' }}>
+            <Link to="/login" className="btn btn-primary btn-lg" style={{ background: 'linear-gradient(135deg, #22c55e, #06b6d4)', fontSize: 'clamp(0.9rem,2.5vw,1.05rem)', padding: 'clamp(10px,2vw,14px) clamp(20px,4vw,36px)' }}>
               Bắt đầu →
             </Link>
-            <Link to="/marketplace" className="btn btn-ghost btn-lg" style={{ border: '1px solid var(--border)' }}>
+            <Link to="/marketplace" className="btn btn-ghost btn-lg" style={{ border: '1px solid var(--border)', fontSize: 'clamp(0.9rem,2.5vw,1.05rem)', padding: 'clamp(10px,2vw,14px) clamp(20px,4vw,36px)' }}>
               {t('home.hero.cta.explore')}
             </Link>
           </div>
 
           {/* Stats bar */}
-          <div className="stats-bar" style={{ marginTop: 48 }}>
+          <div className="stats-bar" style={{ marginTop: 'clamp(20px,4vw,48px)' }}>
             <StatCounter value={142} suffix="₫" label="GMV · YTD" />
             <StatCounter value={12847} suffix="" label="Active KOCs" />
             <StatCounter value={890} suffix="K" label={<span style={{ whiteSpace: 'nowrap' }}>DPP Minted</span>} />
