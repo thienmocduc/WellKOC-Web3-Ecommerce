@@ -132,9 +132,20 @@ async def wallet_connect(
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
     refresh_token: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """Exchange refresh token for new access token"""
+    """Exchange refresh token for new access token (rate limited: 10/min per IP)"""
+    from app.core.redis_client import get_redis
+    r = await get_redis()
+    ip = request.client.host if request.client else "unknown"
+    rate_key = f"refresh_rate:{ip}"
+    count = await r.incr(rate_key)
+    if count == 1:
+        await r.expire(rate_key, 60)
+    if count > 10:
+        raise HTTPException(status_code=429, detail="Quá nhiều yêu cầu. Vui lòng thử lại sau")
+
     svc = AuthService(db)
     tokens = await svc.refresh(refresh_token=refresh_token)
     if not tokens:

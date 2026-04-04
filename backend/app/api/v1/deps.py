@@ -65,18 +65,33 @@ async def _decode_supabase_token(token: str) -> Optional[dict]:
     """
     # 1. Try JWKS / ES256 (new ECC keys)
     keys = await _get_jwks()
-    for key_data in keys:
+    if keys:
+        # Match kid header to the right key — avoids trying all keys
         try:
-            payload = jwt.decode(
-                token,
-                key_data,
-                algorithms=["ES256", "RS256"],
-                options={"verify_aud": False},
-            )
-            payload["_source"] = "supabase"
-            return payload
-        except JWTError:
-            continue
+            header = jwt.get_unverified_header(token)
+            token_kid = header.get("kid")
+        except Exception:
+            token_kid = None
+
+        # If kid matches, try only that key; otherwise try all
+        candidates = [k for k in keys if k.get("kid") == token_kid] if token_kid else keys
+        if not candidates:
+            candidates = keys  # fallback: try all
+
+        for key_data in candidates:
+            try:
+                payload = jwt.decode(
+                    token,
+                    key_data,
+                    algorithms=["ES256", "RS256"],
+                    # Supabase aud = "authenticated" — verify it
+                    options={"verify_aud": True},
+                    audience="authenticated",
+                )
+                payload["_source"] = "supabase"
+                return payload
+            except JWTError:
+                continue
 
     # 2. Fall back to legacy HS256 shared secret
     if settings.SUPABASE_JWT_SECRET:
@@ -167,9 +182,14 @@ async def _upsert_supabase_user(payload: dict, db: AsyncSession) -> User:
         meta = payload.get("user_metadata") or {}
         app_meta = payload.get("app_metadata") or {}
         email = payload.get("email") or meta.get("email", "")
-        role_str = meta.get("role") or app_meta.get("role") or "user"
+        # Only trust app_metadata for elevated roles (set server-side via Supabase admin).
+        # user_metadata is user-controlled during sign-up — never grant elevated roles from it.
+        role_str = app_meta.get("role") or "user"
         try:
             role = UserRole(role_str)
+            # Hard guard: never auto-assign ADMIN/SUPER_ADMIN on first login
+            if role in (UserRole.ADMIN, UserRole.SUPER_ADMIN):
+                role = UserRole.USER
         except ValueError:
             role = UserRole.USER
 

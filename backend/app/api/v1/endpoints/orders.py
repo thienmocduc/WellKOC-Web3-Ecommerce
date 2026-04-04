@@ -100,6 +100,22 @@ async def update_status(
     r = await db.execute(select(Order).where(Order.id == order_id))
     order = r.scalar_one_or_none()
     if not order: raise HTTPException(404)
+    # Vendors can only update their own orders
+    if current_user.role == UserRole.VENDOR and str(order.vendor_id) != str(current_user.id):
+        raise HTTPException(403, "Không có quyền cập nhật đơn hàng này")
+    # Validate status transition
+    valid_transitions = {
+        OrderStatus.PENDING: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+        OrderStatus.CONFIRMED: [OrderStatus.PACKING, OrderStatus.CANCELLED],
+        OrderStatus.PACKING: [OrderStatus.SHIPPING, OrderStatus.CANCELLED],
+        OrderStatus.SHIPPING: [OrderStatus.DELIVERED],
+        OrderStatus.DELIVERED: [OrderStatus.COMPLETED, OrderStatus.REFUNDING],
+        OrderStatus.REFUNDING: [OrderStatus.REFUNDED, OrderStatus.DELIVERED],
+    }
+    current_status = order.status
+    if current_status in valid_transitions and status not in valid_transitions.get(current_status, []):
+        if current_user.role != UserRole.ADMIN:
+            raise HTTPException(400, f"Không thể chuyển từ '{current_status}' sang '{status}'")
     order.status = status
     order.status_history = (order.status_history or []) + [{"status": status, "timestamp": datetime.now(timezone.utc).isoformat(), "actor": str(current_user.id)}]
     if status == OrderStatus.DELIVERED:
