@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
+import { productsApi } from '../lib/api';
 import { useI18n } from '@hooks/useI18n';
 
 /* ── Animated counter hook (IntersectionObserver) ── */
@@ -59,8 +60,30 @@ function StatCounter({
   );
 }
 
+const PRODUCT_GRADIENTS = [
+  'linear-gradient(135deg, #1e3a5f, #1e293b)',
+  'linear-gradient(135deg, #2d1b69, #1e293b)',
+  'linear-gradient(135deg, #14532d, #1e293b)',
+  'linear-gradient(135deg, #7c2d12, #1e293b)',
+  'linear-gradient(135deg, #1e293b, #334155)',
+  'linear-gradient(135deg, #0c4a6e, #1e293b)',
+];
+
+const formatVND = (n: number) => new Intl.NumberFormat('vi-VN').format(n) + ' ₫';
+
 export default function Home() {
   const { t } = useI18n();
+  const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
+
+  useEffect(() => {
+    productsApi.list({ per_page: '6', sort: 'newest' } as any)
+      .then((res: any) => {
+        const items = res?.items ?? (Array.isArray(res) ? res : []);
+        if (items.length > 0) setFeaturedProducts(items.slice(0, 6));
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <>
       {/* ═══════════════════════════════════════════
@@ -1107,7 +1130,125 @@ export default function Home() {
       <div className="chakra-divider" />
 
       {/* ═══════════════════════════════════════════
-          SECTION 7 — CTA BOTTOM
+          SECTION 7 — SẢN PHẨM NỔI BẬT
+      ═══════════════════════════════════════════ */}
+      {featuredProducts.length > 0 && (
+        <section className="section" style={{ background: 'var(--bg-0)' }}>
+          <div className="container">
+            <div style={{ textAlign: 'center', marginBottom: 48 }}>
+              <div className="section-badge" style={{ marginBottom: 12 }}>
+                <span className="dot-pulse dot-green" /> Sản phẩm trên WellKOC
+              </div>
+              <h2 className="display-lg" style={{ marginBottom: 16 }}>
+                Sản phẩm <span className="gradient-text">nổi bật</span>
+              </h2>
+              <p style={{ color: 'var(--text-2)', maxWidth: 500, margin: '0 auto' }}>
+                Sản phẩm được xác thực nguồn gốc DPP on-chain, minh bạch tuyệt đối.
+              </p>
+            </div>
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+              gap: 20,
+            }}>
+              {featuredProducts.map((p: any, i: number) => (
+                <Link
+                  key={p.id}
+                  to={`/marketplace`}
+                  style={{ textDecoration: 'none' }}
+                >
+                  <div style={{
+                    background: 'var(--bg-1)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    transition: 'transform .2s, box-shadow .2s',
+                    cursor: 'pointer',
+                  }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLElement).style.transform = 'translateY(-4px)';
+                      (e.currentTarget as HTMLElement).style.boxShadow = '0 12px 32px rgba(0,0,0,.25)';
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLElement).style.transform = '';
+                      (e.currentTarget as HTMLElement).style.boxShadow = '';
+                    }}
+                  >
+                    {/* Product image / gradient placeholder */}
+                    <div style={{
+                      height: 180,
+                      background: p.thumbnail_url ? `url(${p.thumbnail_url}) center/cover` : PRODUCT_GRADIENTS[i % PRODUCT_GRADIENTS.length],
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      {!p.thumbnail_url && (
+                        <span style={{ fontSize: 40 }}>🌿</span>
+                      )}
+                      {p.dpp_verified && (
+                        <span style={{
+                          position: 'absolute', top: 10, left: 10,
+                          background: 'rgba(34,197,94,.9)', color: '#fff',
+                          fontSize: '.7rem', fontWeight: 700,
+                          padding: '3px 8px', borderRadius: 20,
+                        }}>DPP ✓</span>
+                      )}
+                      {p.compare_at_price && p.compare_at_price > p.price && (
+                        <span style={{
+                          position: 'absolute', top: 10, right: 10,
+                          background: 'rgba(239,68,68,.9)', color: '#fff',
+                          fontSize: '.7rem', fontWeight: 700,
+                          padding: '3px 8px', borderRadius: 20,
+                        }}>
+                          -{Math.round((1 - p.price / p.compare_at_price) * 100)}%
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div style={{ padding: '14px 16px' }}>
+                      <div style={{
+                        fontSize: '.75rem', color: 'var(--text-3)',
+                        textTransform: 'uppercase', letterSpacing: '.05em',
+                        marginBottom: 6,
+                      }}>{p.category}</div>
+                      <div style={{
+                        fontWeight: 600, color: 'var(--text-1)',
+                        fontSize: '.95rem', lineHeight: 1.4, marginBottom: 10,
+                        display: '-webkit-box', WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                      }}>{p.name}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontWeight: 700, color: '#22c55e', fontSize: '1rem' }}>
+                          {formatVND(p.price)}
+                        </span>
+                        {p.compare_at_price && p.compare_at_price > p.price && (
+                          <span style={{ fontSize: '.8rem', color: 'var(--text-3)', textDecoration: 'line-through' }}>
+                            {formatVND(p.compare_at_price)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            <div style={{ textAlign: 'center', marginTop: 40 }}>
+              <Link to="/marketplace" className="btn btn-primary btn-lg">
+                Xem tất cả sản phẩm →
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <div className="chakra-divider" />
+
+      {/* ═══════════════════════════════════════════
+          SECTION 8 — CTA BOTTOM
       ═══════════════════════════════════════════ */}
       <section
         style={{

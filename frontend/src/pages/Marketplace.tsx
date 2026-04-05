@@ -117,19 +117,19 @@ export default function Marketplace() {
       const res = await productsApi.list(params);
       const items = (res as any).items ?? (Array.isArray(res) ? res : []);
       if (items.length > 0) {
-        setProducts(items.map((p: any) => ({
+        setProducts(items.map((p: any, i: number) => ({
           id: p.id,
           name: p.name,
           price: p.price,
-          originalPrice: p.original_price,
+          originalPrice: p.compare_at_price ?? p.original_price,
           category: p.category || 'other',
-          dpp: p.dpp_enabled ?? false,
-          rating: p.rating ?? 0,
-          sold: p.sold_count ?? 0,
+          dpp: p.dpp_verified ?? p.dpp_enabled ?? false,
+          rating: p.rating_avg ?? p.rating ?? 0,
+          sold: p.order_count ?? p.sold_count ?? 0,
           kocAvatar: p.koc_avatar || '',
           kocName: p.koc_name || '',
-          gradient: DEMO_PRODUCTS[Math.floor(Math.random() * DEMO_PRODUCTS.length)].gradient,
-          imageUrl: p.image_url,
+          gradient: DEMO_PRODUCTS[i % DEMO_PRODUCTS.length].gradient,
+          imageUrl: p.thumbnail_url ?? p.image_url,
         })));
       } else {
         setProducts(DEMO_PRODUCTS);
