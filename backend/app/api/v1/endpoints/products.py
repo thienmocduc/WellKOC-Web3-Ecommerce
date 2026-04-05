@@ -95,7 +95,7 @@ async def get_product_by_slug(
                 ProductModel.sku == slug,
                 ProductModel.name.ilike(slug.replace("-", "%")),
             ),
-            ProductModel.status == "active",
+            ProductModel.status.in_(["active", "published"]),
         ).limit(1)
     )
     product = r.scalar_one_or_none()

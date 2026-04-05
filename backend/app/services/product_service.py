@@ -20,6 +20,20 @@ _PG_TS_CONFIG = {
     "th": "simple",
 }
 
+# Visible product statuses (active = approved by admin, published = vendor-set live)
+_VISIBLE_STATUSES = ("active", "published")
+
+# Frontend category key → DB category value mapping
+# Frontend sends short English keys; DB may store full Vietnamese names
+_CATEGORY_ALIAS: dict[str, str] = {
+    "food": "Thuc Pham Chuc Nang",
+    "skincare": "Skincare",
+    "tech": "tech",
+    "fashion": "fashion",
+    "health": "health",
+    "supplement": "supplement",
+}
+
 
 class ProductService:
     def __init__(self, db: AsyncSession):
@@ -37,9 +51,10 @@ class ProductService:
         page=1,
         per_page=20,
     ):
-        q = select(Product).where(Product.status == "active")
+        q = select(Product).where(Product.status.in_(_VISIBLE_STATUSES))
         if category:
-            q = q.where(Product.category == category)
+            resolved = _CATEGORY_ALIAS.get(category.lower(), category)
+            q = q.where(Product.category == resolved)
         if brand:
             q = q.where(Product.brand == brand)
         if min_price:
@@ -101,12 +116,13 @@ class ProductService:
         fts_q = (
             select(Product, rank)
             .where(
-                Product.status == "active",
+                Product.status.in_(_VISIBLE_STATUSES),
                 ts_vector.op("@@")(ts_query),
             )
         )
         if category:
-            fts_q = fts_q.where(Product.category == category)
+            resolved = _CATEGORY_ALIAS.get(category.lower(), category)
+            fts_q = fts_q.where(Product.category == resolved)
         if dpp_only:
             fts_q = fts_q.where(Product.dpp_verified == True)  # noqa: E712
 
@@ -140,7 +156,7 @@ class ProductService:
         fuzzy_q = (
             select(Product, similarity)
             .where(
-                Product.status == "active",
+                Product.status.in_(_VISIBLE_STATUSES),
                 or_(
                     func.similarity(Product.name, sanitized_query) > 0.1,
                     func.similarity(
@@ -150,7 +166,8 @@ class ProductService:
             )
         )
         if category:
-            fuzzy_q = fuzzy_q.where(Product.category == category)
+            resolved = _CATEGORY_ALIAS.get(category.lower(), category)
+            fuzzy_q = fuzzy_q.where(Product.category == resolved)
         if dpp_only:
             fuzzy_q = fuzzy_q.where(Product.dpp_verified == True)  # noqa: E712
 
