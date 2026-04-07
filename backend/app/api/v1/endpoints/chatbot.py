@@ -8,10 +8,11 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
+from app.core.ai_rate_limiter import ai_rate_limit_ip
 
 router = APIRouter(prefix="/ai", tags=["Chatbot"])
 
@@ -61,8 +62,12 @@ class ChatResponse(BaseModel):
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(body: ChatRequest):
-    """Public customer support chat — no auth required."""
+async def chat(
+    request: Request,
+    body: ChatRequest,
+    _rl: None = Depends(ai_rate_limit_ip),
+):
+    """Public customer support chat — no auth required. Rate limited 20 req/min per IP."""
     reply = await _generate(body.message, body.history)
     return ChatResponse(reply=reply)
 

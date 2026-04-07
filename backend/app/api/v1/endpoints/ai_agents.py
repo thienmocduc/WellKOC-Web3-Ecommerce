@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.api.v1.deps import get_current_user, require_role, CurrentUser
+from app.core.ai_rate_limiter import ai_rate_limit
 from app.models.user import User, UserRole
 from app.models.product import Product
 from app.models.order import Order
@@ -56,6 +57,7 @@ async def generate_caption(
     body: CaptionRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _rl: None = Depends(ai_rate_limit),
 ):
     """Agent A01: Generate platform-optimized KOC caption with DPP context.
     Supports product_id auto-fetch, DPP verification angle, and affiliate link placeholder.
@@ -166,7 +168,7 @@ class HashtagResponse(BaseModel):
 
 
 @router.post("/hashtags", response_model=HashtagResponse)
-async def generate_hashtags(body: HashtagRequest, current_user: User = Depends(get_current_user)):
+async def generate_hashtags(body: HashtagRequest, current_user: User = Depends(get_current_user), _rl: None = Depends(ai_rate_limit)):
     """Agent A03: Generate trending hashtags grouped by reach (viral 30%, mid 50%, niche 20%)"""
     if not client:
         raise HTTPException(503, "AI service unavailable")
@@ -277,6 +279,7 @@ async def generate_content_calendar(
     body: ContentCalendarRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    _rl: None = Depends(ai_rate_limit),
 ):
     """Agent A07: Generate a multi-week content plan with topics, posting times, and content types"""
     if not client:
@@ -382,7 +385,7 @@ class LinkRequest(BaseModel):
 
 
 @router.post("/link")
-async def generate_affiliate_link(body: LinkRequest, current_user: User = Depends(get_current_user)):
+async def generate_affiliate_link(body: LinkRequest, current_user: User = Depends(get_current_user), _rl: None = Depends(ai_rate_limit)):
     """Generate smart affiliate link with UTM tracking"""
     import hashlib
     # Short code: first 8 chars of hash
@@ -584,6 +587,7 @@ async def koc_coaching_report(
     koc_id: UUID,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
+    _rl: None = Depends(ai_rate_limit),
 ):
     """Agent A20: Enhanced weekly AI-powered performance coaching.
     Includes weekly comparison, peer benchmarking, action items with ROI,
@@ -719,6 +723,7 @@ async def get_coaching_history(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
     limit: int = Query(10, ge=1, le=50),
+    _rl: None = Depends(ai_rate_limit),
 ):
     """Past coaching reports for a KOC."""
     # KOCs can only see their own; admins see all
@@ -748,6 +753,7 @@ async def get_coaching_history(
 async def batch_coaching(
     current_user: User = Depends(require_role([UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db),
+    _rl: None = Depends(ai_rate_limit),
 ):
     """Admin triggers batch coaching for all active KOCs.
     Generates coaching reports for each active KOC.
