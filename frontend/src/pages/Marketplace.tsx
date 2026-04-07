@@ -224,7 +224,7 @@ export default function Marketplace() {
               <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: '.9rem', color: 'var(--text-3)', pointerEvents: 'none' }}>🔍</span>
               <input
                 type="text"
-                placeholder={t('marketplace.searchPlaceholder') || 'Tìm kiếm sản phẩm...'}
+                placeholder={t('marketplace.search')}
                 value={search}
                 onChange={e => { setSearch(e.target.value); setVisibleCount(8); setSearchParams(prev => { const p = new URLSearchParams(prev); e.target.value ? p.set('q', e.target.value) : p.delete('q'); return p; }); }}
                 style={{
