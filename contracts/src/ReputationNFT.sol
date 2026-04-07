@@ -2,15 +2,13 @@
 pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 /**
  * @title WellKOC Reputation NFT — Soulbound KOC Identity
  * @notice Non-transferable NFT tracking KOC on-chain history
  */
 contract ReputationNFT is ERC721URIStorage, AccessControl {
-    using Counters for Counters.Counter;
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    Counters.Counter private _ids;
+    uint256 private _nextId;
     struct KOCData { uint256 totalGMV; uint256 totalOrders; uint8 tier; uint256 joinedAt; string handle; }
     mapping(uint256 => KOCData) public kocData;
     mapping(address => uint256) public kocToToken;
@@ -23,8 +21,8 @@ contract ReputationNFT is ERC721URIStorage, AccessControl {
 
     function mintReputation(address koc, string calldata uri, string calldata handle) external onlyRole(MINTER_ROLE) returns (uint256) {
         require(kocToToken[koc] == 0, "Already has reputation NFT");
-        _ids.increment();
-        uint256 id = _ids.current();
+        _nextId++;
+        uint256 id = _nextId;
         _mint(koc, id);
         _setTokenURI(id, uri);
         kocData[id] = KOCData(0, 0, 0, block.timestamp, handle);

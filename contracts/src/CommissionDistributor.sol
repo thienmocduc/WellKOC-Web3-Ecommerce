@@ -20,15 +20,24 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 contract CommissionDistributor is
     Initializable,
     OwnableUpgradeable,
     UUPSUpgradeable,
-    PausableUpgradeable,
-    ReentrancyGuardUpgradeable
+    PausableUpgradeable
 {
+    // ── Reentrancy guard (inline, OZ v5 removed upgradeable version) ─────────
+    uint256 private _reentrancyStatus;
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+
+    modifier nonReentrant() {
+        require(_reentrancyStatus != _ENTERED, "ReentrancyGuard: reentrant call");
+        _reentrancyStatus = _ENTERED;
+        _;
+        _reentrancyStatus = _NOT_ENTERED;
+    }
     // ── Events ──────────────────────────────────────────────
     event CommissionPaid(
         bytes32 indexed orderId,
@@ -77,9 +86,8 @@ contract CommissionDistributor is
         address _platformTreasury
     ) public initializer {
         __Ownable_init(_owner);
-        __UUPSUpgradeable_init();
         __Pausable_init();
-        __ReentrancyGuard_init();
+        _reentrancyStatus = _NOT_ENTERED;
 
         backend = _backend;
         platformTreasury = _platformTreasury;

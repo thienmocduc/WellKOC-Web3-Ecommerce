@@ -25,11 +25,11 @@ contract TeamVesting is Ownable {
         startTime=block.timestamp;
     }
     function release() external {
-        uint256 releasable=vestedAmount()-released;
-        require(releasable>0,"TV:nothing to release");
-        released+=releasable;
-        require(token.transfer(beneficiary,releasable),"TV:transfer failed");
-        emit Released(releasable);
+        uint256 releasableAmt=vestedAmount()-released;
+        require(releasableAmt>0,"TV:nothing to release");
+        released+=releasableAmt;
+        require(token.transfer(beneficiary,releasableAmt),"TV:transfer failed");
+        emit Released(releasableAmt);
     }
     function vestedAmount() public view returns(uint256){
         uint256 total=token.balanceOf(address(this))+released;
