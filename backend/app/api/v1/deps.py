@@ -30,8 +30,16 @@ from app.models.user import User, UserRole
 security = HTTPBearer(auto_error=False)
 
 ALGORITHM = "HS256"
-SUPABASE_PROJECT_ID = "gltdkplfukjfpajwftzd"
-SUPABASE_JWKS_URL = f"https://{SUPABASE_PROJECT_ID}.supabase.co/auth/v1/.well-known/jwks.json"
+
+def _supabase_jwks_url() -> str:
+    """Derive JWKS URL from SUPABASE_URL setting (no hardcoded project ID)."""
+    base = (settings.SUPABASE_URL or "").rstrip("/")
+    if base:
+        return f"{base}/auth/v1/.well-known/jwks.json"
+    # fallback: derive from hardcoded project if no env var set
+    return "https://gltdkplfukjfpajwftzd.supabase.co/auth/v1/.well-known/jwks.json"
+
+SUPABASE_JWKS_URL = _supabase_jwks_url()
 
 # Simple in-memory JWKS cache (refreshed every 24h)
 _jwks_cache: dict = {"keys": [], "fetched_at": 0}

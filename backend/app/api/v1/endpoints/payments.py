@@ -206,6 +206,17 @@ async def initiate_payment(
     db.add(order)
     await db.commit()
 
+    # ── Validate gateway configuration ───────────────────────
+    _gateway_checks = {
+        "vnpay":  (settings.VNPAY_TMN_CODE and settings.VNPAY_HASH_SECRET,   "VNPay chưa được cấu hình"),
+        "momo":   (settings.MOMO_PARTNER_CODE and settings.MOMO_SECRET_KEY,   "MoMo chưa được cấu hình"),
+        "payos":  (settings.PAYOS_CLIENT_ID and settings.PAYOS_CHECKSUM_KEY,  "PayOS chưa được cấu hình"),
+    }
+    if body.gateway in _gateway_checks:
+        ok, msg = _gateway_checks[body.gateway]
+        if not ok:
+            raise HTTPException(503, f"Cổng thanh toán không khả dụng: {msg}")
+
     # ── VNPay ────────────────────────────────────────────────
     if body.gateway == "vnpay":
         params = {

@@ -4,12 +4,12 @@ Events: order_update, commission_paid, live_viewer_count, groupbuy_progress
 """
 import json
 from typing import Dict, Set
-from uuid import UUID
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from jose import JWTError, jwt
 
 from app.core.config import settings
+from app.api.v1.deps import _decode_supabase_token, _is_supabase_token
 
 router = APIRouter(tags=["WebSocket"])
 ALGORITHM = "HS256"
@@ -77,8 +77,20 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-def verify_ws_token(token: str) -> tuple[str, str] | None:
-    """Returns (user_id, role) tuple or None if invalid."""
+async def verify_ws_token(token: str) -> tuple[str, str] | None:
+    """Returns (user_id, role) tuple or None if invalid.
+    Supports both Supabase JWT (ES256/RS256/HS256) and backend HS256 JWT.
+    """
+    # 1. Try Supabase token first (frontend sends Supabase JWT)
+    if _is_supabase_token(token):
+        payload = await _decode_supabase_token(token)
+        if payload:
+            user_id = payload.get("sub")
+            role = payload.get("user_metadata", {}).get("role", "buyer")
+            if user_id:
+                return (user_id, role)
+
+    # 2. Fall back to backend HS256 JWT (wallet login)
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("type") != "access":
@@ -132,7 +144,7 @@ async def websocket_endpoint(
       {"event": "groupbuy_progress", "data": {"id": "...", "count": 156, "target": 200}}
       {"event": "notification", "data": {"title": "...", "body": "..."}}
     """
-    identity = verify_ws_token(token)
+    identity = await verify_ws_token(token)
     if not identity:
         await ws.close(code=4001, reason="Invalid token")
         return
