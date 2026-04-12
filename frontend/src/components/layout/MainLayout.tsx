@@ -195,6 +195,7 @@ export default function MainLayout() {
   const { user, isAuthenticated, logout } = useAuth();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 768);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -262,6 +263,7 @@ export default function MainLayout() {
   const isAgentsPage = location.pathname === '/agents';
   const isDashPage = ['/dashboard', '/koc', '/vendor', '/admin'].some(p => location.pathname.startsWith(p));
   const showSidebar = !isAgentsPage && (isDesktop || sidebarOpen);
+  const effectiveSidebarW = isDesktop && sidebarCollapsed ? 0 : SIDEBAR_W;
   const showFooter = !isAgentsPage && !isDashPage;
 
   function isSubLinkActive(to: string): boolean {
@@ -291,7 +293,9 @@ export default function MainLayout() {
   const sidebarStyle: React.CSSProperties = {
     position: 'fixed',
     top: TOPBAR_H,
-    left: isDesktop ? 0 : (sidebarOpen ? 0 : -SIDEBAR_W),
+    left: isDesktop
+      ? (sidebarCollapsed ? -SIDEBAR_W : 0)
+      : (sidebarOpen ? 0 : -SIDEBAR_W),
     width: SIDEBAR_W,
     bottom: 0,
     zIndex: 900,
@@ -303,8 +307,9 @@ export default function MainLayout() {
     flexDirection: 'column',
     overflowY: 'auto',
     overflowX: 'hidden',
-    transition: isDesktop ? 'none' : 'left 280ms cubic-bezier(.4,0,.2,1)',
-    scrollbarWidth: 'thin' as const,
+    transition: 'left 280ms cubic-bezier(.4,0,.2,1)',
+    scrollbarWidth: 'none' as const,
+    msOverflowStyle: 'none' as const,
   };
 
   return (
@@ -340,21 +345,20 @@ export default function MainLayout() {
           }}>WellKOC</span>
         </Link>
 
-        {/* Hamburger (mobile only) */}
-        {!isDesktop && (
-          <button
-            onClick={() => setSidebarOpen(v => !v)}
-            style={{
-              width: 34, height: 34, borderRadius: 8,
-              border: '1px solid var(--border)',
-              background: 'transparent', color: 'var(--text-2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', flexShrink: 0,
-            }}
-          >
-            {sidebarOpen ? <X size={16} /> : <Menu size={16} />}
-          </button>
-        )}
+        {/* Sidebar toggle — desktop collapses, mobile opens overlay */}
+        <button
+          onClick={() => isDesktop ? setSidebarCollapsed(v => !v) : setSidebarOpen(v => !v)}
+          title="Toggle sidebar"
+          style={{
+            width: 32, height: 32, borderRadius: 7,
+            border: '1px solid var(--border)',
+            background: 'transparent', color: 'var(--text-2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', flexShrink: 0,
+          }}
+        >
+          {(!isDesktop && sidebarOpen) ? <X size={15} /> : <Menu size={15} />}
+        </button>
 
         {/* Search (shown on search-enabled pages) */}
         {['/marketplace', '/feed', '/academy', '/koc'].includes(location.pathname) && (
@@ -604,10 +608,11 @@ export default function MainLayout() {
       {/* ═══ MAIN CONTENT ═══ */}
       <div style={{
         marginTop: TOPBAR_H,
-        marginLeft: isDesktop ? SIDEBAR_W : 0,
+        marginLeft: isDesktop ? effectiveSidebarW : 0,
         minHeight: `calc(100vh - ${TOPBAR_H}px)`,
         display: 'flex', flexDirection: 'column',
         flex: 1,
+        transition: 'margin-left 280ms cubic-bezier(.4,0,.2,1)',
       }}>
         {/* Sub-nav bar (horizontal tabs under topbar) */}
         {subNav && (
