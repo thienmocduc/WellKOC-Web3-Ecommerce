@@ -117,29 +117,32 @@ export default function Home() {
           </h1>
 
           <div style={{ textAlign: 'center', marginBottom: 'clamp(14px,3vw,36px)', display: 'flex', flexDirection: 'column', gap: 'clamp(6px,1.5vw,14px)', alignItems: 'center', width: '100%' }}>
-            <div style={{ fontStyle: 'italic', fontSize: 'clamp(0.95rem, 4vw, 2.4rem)', fontWeight: 700, letterSpacing: '.03em', wordBreak: 'keep-all', overflowWrap: 'break-word', background: 'var(--chakra-text)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+            <div style={{ fontStyle: 'italic', fontSize: 'clamp(1rem, 4vw, 2.4rem)', fontWeight: 700, letterSpacing: '.03em', whiteSpace: 'nowrap', background: 'var(--chakra-text)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
               "{t('home.hero.line1')}"
             </div>
-            <div style={{ fontStyle: 'italic', fontSize: 'clamp(0.95rem, 4vw, 2.4rem)', fontWeight: 700, letterSpacing: '.03em', wordBreak: 'keep-all', overflowWrap: 'break-word', background: 'var(--chakra-text)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-              "{t('home.hero.line2')}"
-            </div>
-            <div style={{ fontStyle: 'italic', fontSize: 'clamp(0.95rem, 4.2vw, 2.6rem)', fontWeight: 800, letterSpacing: '.03em', wordBreak: 'keep-all', overflowWrap: 'break-word', background: 'linear-gradient(135deg, #22c55e, #06b6d4, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+            <div style={{ fontStyle: 'italic', fontSize: 'clamp(1rem, 4.2vw, 2.6rem)', fontWeight: 800, letterSpacing: '.03em', whiteSpace: 'nowrap', background: 'linear-gradient(135deg, #22c55e, #06b6d4, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
               "{t('home.hero.line3')}"
             </div>
           </div>
 
           <p
             style={{
-              fontSize: 'clamp(0.88rem, 2.5vw, 1.35rem)',
+              fontSize: 'clamp(0.9rem, 2vw, 1.15rem)',
               color: 'var(--text-2)',
               lineHeight: 1.7,
-              maxWidth: 680,
+              maxWidth: 760,
               margin: '0 auto clamp(18px,3vw,40px)',
+              textAlign: 'center',
+              textWrap: 'balance' as any,
             }}
           >
-            {t('home.hero.desc.prefix')} <strong style={{ color: 'var(--text-1)' }}>{t('home.hero.desc.buyer')}</strong> ·{' '}
-            <strong style={{ color: 'var(--text-1)' }}>KOC</strong> ·{' '}
-            <strong style={{ color: 'var(--text-1)' }}>Vendor</strong> {t('home.hero.desc.suffix')}
+            Nền tảng kết nối{' '}
+            <strong style={{ color: 'var(--text-1)' }}>Người mua</strong>{' · '}
+            <strong style={{ color: 'var(--text-1)' }}>KOC</strong>{' · '}
+            <strong style={{ color: 'var(--text-1)' }}>Vendor</strong>{' '}
+            trên blockchain.{' '}
+            Hoa hồng on-chain <strong style={{ color: 'var(--text-1)' }}>100% minh bạch</strong>.{' '}
+            <strong style={{ color: 'var(--text-1)' }}>333 AI Agents</strong> phục vụ 24/7.
           </p>
 
           <div
