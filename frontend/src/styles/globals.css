@@ -34,7 +34,8 @@
 
 /* ── DARK THEME (DEFAULT) ── */
 [data-theme="dark"] {
-  --bg-0:   #060910;
+  --bg-0:   #04080f;
+  --orb-op: 0.28;
   --bg-1:   #0b0f1a;
   --bg-2:   #111827;
   --bg-3:   #1a2234;
@@ -58,6 +59,7 @@
 
 /* ── LIGHT THEME ── */
 [data-theme="light"] {
+  --orb-op: 0.10;
   --bg-0:   #fafafe;
   --bg-1:   #ffffff;
   --bg-2:   #f1f5f9;
@@ -82,6 +84,26 @@
 
 /* ── RESET & BASE ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── FLOATING ORBS (nexbuild-style ambient glow) ── */
+.floating-orbs {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 0; overflow: hidden;
+}
+.orb {
+  position: absolute; border-radius: 50%;
+  filter: blur(90px);
+  opacity: var(--orb-op, 0.28);
+  will-change: transform;
+}
+.orb-1 { width: 560px; height: 560px; background: #00c9a7; top: -140px; left: -120px; animation: orbDrift1 14s ease-in-out infinite alternate; }
+.orb-2 { width: 440px; height: 440px; background: #0ea5e9; top: 25%; right: -100px; animation: orbDrift2 17s ease-in-out infinite alternate; animation-delay: -4s; }
+.orb-3 { width: 480px; height: 480px; background: #6366f1; bottom: 5%; left: 18%; animation: orbDrift3 20s ease-in-out infinite alternate; animation-delay: -8s; }
+.orb-4 { width: 380px; height: 380px; background: #a855f7; bottom: -100px; right: 12%; animation: orbDrift4 16s ease-in-out infinite alternate; animation-delay: -6s; }
+@keyframes orbDrift1 { from { transform: translate(0,0) scale(1); } to { transform: translate(60px,-40px) scale(1.1); } }
+@keyframes orbDrift2 { from { transform: translate(0,0) scale(1); } to { transform: translate(-50px,60px) scale(0.92); } }
+@keyframes orbDrift3 { from { transform: translate(0,0) scale(1); } to { transform: translate(40px,-50px) scale(1.08); } }
+@keyframes orbDrift4 { from { transform: translate(0,0) scale(1); } to { transform: translate(-60px,30px) scale(1.05); } }
 
 /* overflow-x: hidden on BOTH html AND body — iOS Safari ignores it when set on body alone */
 html { scroll-behavior: smooth; font-size: 16px; overflow-x: hidden; max-width: 100vw; }

@@ -371,6 +371,14 @@ export default function MainLayout() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
 
+      {/* ── Ambient floating orbs (nexbuild-style) ── */}
+      <div className="floating-orbs" aria-hidden="true">
+        <div className="orb orb-1" />
+        <div className="orb orb-2" />
+        <div className="orb orb-3" />
+        <div className="orb orb-4" />
+      </div>
+
       {/* ═══ TOPBAR ═══ */}
       <header style={{
         position: 'fixed', top: 0, left: 0, right: 0,

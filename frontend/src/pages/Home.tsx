@@ -540,7 +540,7 @@ export default function Home() {
             <div className="section-badge">
               <span className="dot-pulse dot-violet" /> <span style={{ whiteSpace: 'nowrap' }}>On-chain Commission</span>
             </div>
-            <h2 className="display-lg" style={{ marginBottom: 12 }}>
+            <h2 className="display-lg" style={{ marginBottom: 12, fontSize: 'clamp(1.35rem, 2.4vw, 2rem)', lineHeight: 1.3 }}>
               {t('home.commission.title.prefix').replace(/Hoa hồng/g, 'Hoa\u00A0hồng').replace(/minh bạch/g, 'minh\u00A0bạch')}{' '}
               <span className="gradient-text">{t('home.commission.title.highlight')}</span>
             </h2>
