@@ -578,6 +578,11 @@ export default function Dashboard() {
                       {/* Footer */}
                       <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', borderTop: '1px solid var(--border)', background: 'var(--bg-1)' }}>
                         <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
+                          {order.status === 'pending' && (
+                            <button className="btn btn-primary btn-sm" onClick={() => navigate('/checkout')} style={{ whiteSpace: 'nowrap' }}>
+                              💳 Thanh toán
+                            </button>
+                          )}
                           {(order.status === 'pending' || order.status === 'confirmed') && (
                             <button className="btn btn-sm" style={{ background: '#ef4444', color: '#fff', border: 'none' }} onClick={() => handleCancelOrder(order.id)}>{t('dashboard.cancelOrder')}</button>
                           )}

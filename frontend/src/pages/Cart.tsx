@@ -107,14 +107,14 @@ export default function Cart() {
   const updateQty = async (item: CartItem, delta: number) => {
     const newQty = Math.max(1, item.quantity + delta);
     if (newQty === item.quantity) return;
-    setUpdatingId(item.id);
+    setUpdatingId(item.productId);
     // Optimistic update
-    setItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: newQty } : i));
+    setItems(prev => prev.map(i => i.productId === item.productId ? { ...i, quantity: newQty } : i));
     try {
-      await cartApi.updateItem(item.id, newQty, token!);
+      await cartApi.updateItem(item.productId, newQty, token!);
     } catch (err: any) {
       // Revert on failure
-      setItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: item.quantity } : i));
+      setItems(prev => prev.map(i => i.productId === item.productId ? { ...i, quantity: item.quantity } : i));
       toast.error(err.message || 'Không thể cập nhật số lượng');
     } finally {
       setUpdatingId(null);
@@ -122,15 +122,15 @@ export default function Cart() {
   };
 
   const removeItem = async (item: CartItem) => {
-    setUpdatingId(item.id);
+    setUpdatingId(item.productId);
     // Optimistic remove
-    setItems(prev => prev.filter(i => i.id !== item.id));
+    setItems(prev => prev.filter(i => i.productId !== item.productId));
     try {
-      await cartApi.removeItem(item.id, token ?? undefined);
+      await cartApi.removeItem(item.productId, token!);
       toast.success(`Đã xoá "${item.name}" khỏi giỏ hàng`);
     } catch (err: any) {
       // Revert on failure
-      setItems(prev => [...prev, item].sort((a, b) => a.id.localeCompare(b.id)));
+      setItems(prev => [...prev, item].sort((a, b) => a.productId.localeCompare(b.productId)));
       toast.error(err.message || 'Không thể xoá sản phẩm');
     } finally {
       setUpdatingId(null);
@@ -290,7 +290,7 @@ export default function Cart() {
               <div
                 key={item.id}
                 className="card"
-                style={{ padding: '18px 20px', opacity: updatingId === item.id ? 0.6 : 1, transition: 'opacity .2s' }}
+                style={{ padding: '18px 20px', opacity: updatingId === item.productId ? 0.6 : 1, transition: 'opacity .2s' }}
               >
                 <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
                   {/* Product Image */}
@@ -336,7 +336,7 @@ export default function Cart() {
                         <button
                           className="btn btn-secondary"
                           onClick={() => updateQty(item, -1)}
-                          disabled={updatingId === item.id || item.quantity <= 1}
+                          disabled={updatingId === item.productId || item.quantity <= 1}
                           style={{
                             width: 32, height: 32, padding: 0,
                             fontSize: '1rem', borderRadius: 8,
@@ -354,7 +354,7 @@ export default function Cart() {
                         <button
                           className="btn btn-secondary"
                           onClick={() => updateQty(item, 1)}
-                          disabled={updatingId === item.id}
+                          disabled={updatingId === item.productId}
                           style={{
                             width: 32, height: 32, padding: 0,
                             fontSize: '1rem', borderRadius: 8,
@@ -380,7 +380,7 @@ export default function Cart() {
                   {/* Remove button */}
                   <button
                     onClick={() => removeItem(item)}
-                    disabled={updatingId === item.id}
+                    disabled={updatingId === item.productId}
                     style={{
                       background: 'none', border: 'none', cursor: 'pointer',
                       color: 'var(--text-4)', fontSize: '.88rem', padding: 4,

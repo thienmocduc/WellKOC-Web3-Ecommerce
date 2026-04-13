@@ -39,8 +39,36 @@ class UpdateItemReq(BaseModel):
 @router.get("")
 async def get_cart(current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
     items = await _get_cart(str(current_user.id))
-    subtotal = sum(float(i.get("price",0)) * i.get("quantity",1) for i in items)
-    return {"items": items, "item_count": sum(i.get("quantity",1) for i in items), "subtotal": subtotal, "total": subtotal}
+    # Normalize to CartItem schema expected by frontend
+    normalized = [
+        {
+            "id": i.get("product_id", ""),
+            "product_id": i.get("product_id", ""),
+            "product_name": i.get("name", i.get("product_name", "")),
+            "product_image": i.get("thumbnail", i.get("product_image")),
+            "variant_id": i.get("variant_id"),
+            "variant_name": i.get("variant_name"),
+            "quantity": i.get("quantity", 1),
+            "unit_price": float(i.get("price", i.get("unit_price", 0))),
+            "subtotal": float(i.get("price", i.get("unit_price", 0))) * i.get("quantity", 1),
+            "xp_reward": i.get("xp_reward", 10),
+            "dpp_enabled": i.get("dpp_verified", i.get("dpp_enabled", False)),
+        }
+        for i in items
+    ]
+    subtotal = sum(n["subtotal"] for n in normalized)
+    return {
+        "id": f"cart:{current_user.id}",
+        "user_id": str(current_user.id),
+        "items": normalized,
+        "item_count": sum(n["quantity"] for n in normalized),
+        "subtotal": subtotal,
+        "discount": 0,
+        "shipping_fee": 0,
+        "total": subtotal,
+        "total_xp": sum(n["xp_reward"] * n["quantity"] for n in normalized),
+        "updated_at": "",
+    }
 
 @router.post("/items", status_code=201)
 async def add_to_cart(body: AddItemReq, current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
@@ -55,7 +83,7 @@ async def add_to_cart(body: AddItemReq, current_user: CurrentUser, db: AsyncSess
     else:
         items.append({"product_id": str(body.product_id), "variant_id": str(body.variant_id) if body.variant_id else None, "name": product.name, "thumbnail": product.thumbnail_url, "price": float(product.price), "quantity": body.quantity, "dpp_verified": product.dpp_verified, "koc_ref_id": body.koc_ref_id})
     await _save_cart(str(current_user.id), items)
-    return {"status": "added", "item_count": len(items)}
+    return {"status": "added", "item_count": len(items), "cart_id": f"cart:{current_user.id}"}
 
 @router.patch("/items/{product_id}")
 async def update_item(product_id: UUID, body: UpdateItemReq, current_user: CurrentUser):
